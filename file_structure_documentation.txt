@@ -1,0 +1,45 @@
+file_structure_documentation
+
+crypto_trading/
+
+    .venv
+    .gitignore
+    requirements.txt: requirements for the venv to be set up
+    application.py: python file that interfaces with AWS, executes daily
+                    runs update_data.py and strategy.py
+    
+    templates/ 
+        # reserved for front-end (HTML) files
+
+    data/
+        <ticker>.csv: a bunch of csv files that store all historical data (up to current date)
+        # for as many tickers as we want
+
+    helpers/ 
+        get_data.py: script to pull a bunch of data and create datafiles, can be run daily
+            # get_product_candles(ticker, start, end, granularity) --> data/<ticker>.csv
+                # if data file does not already exist, get a bunch of historical data
+                # if data file does exist, get current date of data and update data file
+
+        strategy.py: takes in parameters for a trading day (i.e. account, current date signals)
+                    and executes trade decision
+            # trading_day() --> 
+
+        indicators.py: functions that take in sections of dates and output a signal for
+                       the latest date (can combine with strategy.py)
+            # simple_moving_average(data, window) --> SMA
+            # exponential_moving_average(data, window) --> EMA
+            # golden_cross(data, short_window, long_window) --> signal
+            # death_cross(data, short_window, long_window) --> signal
+            # ... any other TA signals
+
+        account.py: contains interface to exchange wallets, or test wallets (for backtest)
+            # TestAccount
+            # Account
+            # get_current_balance()
+            # trade()
+
+    backtest/
+        backtest.py: handles any backtest logic, including train-test split, scenario analysis, 
+                     visualizations, and anything like that
+        # any other testing files / results / outputs
