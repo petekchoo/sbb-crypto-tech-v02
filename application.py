@@ -1,6 +1,9 @@
 from flask import Flask
+from helpers.strategy import runStrategy
+import helpers.indicators
+
 application = Flask(__name__)
 
 @application.route('/')
 def hello_SBB():
-    return 'Welcome to SBB crypto tech trading'
+    return 'working on it!'
