@@ -1,6 +1,5 @@
-import pandas as pd, numpy as np, json, requests, time, csv
+import pandas as pd, json, requests, time
 from datetime import datetime, timedelta
-from os import walk
 
 
 def get_product_candles(symbol, start, end, granularity=86400):
@@ -29,14 +28,6 @@ def get_product_candles(symbol, start, end, granularity=86400):
     lst = json.loads(response.text)
     return lst
 
-granularity_mapping = {
-    'daily': 86400, 
-    '6h': 21600, 
-    '1h': 3600, 
-    '15min': 900, 
-    '5min': 300, 
-    '1min': 60
-}
 
 def epoch_to_isoformat(epoch):
     """
@@ -49,6 +40,7 @@ def epoch_to_isoformat(epoch):
         str: ISO 8601 formatted date string
     """
     return datetime.utcfromtimestamp(epoch).isoformat()
+
 
 def update_data(granularity=86400):
     """
@@ -96,6 +88,7 @@ def update_data(granularity=86400):
         new_daily = new_daily.append(new_data)
     daily = daily.append(new_daily)
     daily.to_csv('../data/daily.csv', index=False)
+
 
 # run file; can be called by live application daily
 # will update the `../data/daily.csv` file if possible
