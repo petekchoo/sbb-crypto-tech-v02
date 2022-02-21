@@ -11,7 +11,7 @@ from indicators import fallingCheck, risingCheck, getATR, getSMA, getEMA
 
 lstDaily = []
 reader = csv.DictReader(open('data/daily.csv', mode='r', encoding='utf-8-sig'))
-lstDaily = list(reversed(list(reader)))
+lstDaily = list(reader)
 
 lstBTC100 = []
 account = None
