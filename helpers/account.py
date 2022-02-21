@@ -26,12 +26,12 @@ class TestAccount:
         balance_required = price * qty
         if balance_required > self.balance: 
             print('Buy error: Not enough cash to execute trade for {0} {1} at {2} (total \
-                balance required: {3}). Porfolio only has {4} available cash to spend.').format(qty, 
-                symbol, price, balance_required, self.balance)
+                balance required: {3}). Porfolio only has {4} available cash to spend.'.format(qty, 
+                symbol, price, balance_required, self.balance))
         else: # execute trade
             self.portfolio[symbol] += qty
             self.balance -= balance_required
-            self.trades.append([time, 'buy', symbol, price, qty])
+            self.trade_history.append([time, 'buy', symbol, price, qty])
     
 
     def sell(self, symbol, price, qty, time=None): 
@@ -52,7 +52,7 @@ class TestAccount:
         else: # execute trade
             self.portfolio[symbol] -= qty
             self.balance += qty * price
-            self.trades.append([time, 'sell', symbol, price, qty])
+            self.trade_history.append([time, 'sell', symbol, price, qty])
     
     def get_balance(self):
         return self.balance
