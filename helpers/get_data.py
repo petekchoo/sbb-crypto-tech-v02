@@ -87,6 +87,7 @@ def update_data(granularity=86400):
         new_data['symbol'] = symbol # add symbol column to all responses for this symbol
         new_daily = new_daily.append(new_data)
     daily = daily.append(new_daily)
+    daily = daily.sort_values(['symbol', 'time']) # inefficient, but it will re-sort the daily file
     daily.to_csv('../data/daily.csv', index=False)
 
 
