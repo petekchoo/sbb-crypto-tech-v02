@@ -7,7 +7,7 @@
 import csv
 import datetime
 import timedelta
-from helpers.indicators import fallingCheck, risingCheck, getATR, getSMA, getEMA
+from indicators import fallingCheck, risingCheck, getATR, getSMA, getEMA
 
 lstDaily = []
 reader = csv.DictReader(open('data/daily.csv', mode='r', encoding='utf-8-sig'))
@@ -30,3 +30,5 @@ def returnIndicators(data):
 
 def runStrategy():
     return returnIndicators(lstBTC100)
+
+print(runStrategy())

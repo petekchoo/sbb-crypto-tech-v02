@@ -197,8 +197,6 @@ def getRSI(data, timeperiod):
         losses.pop(0)
 '''
 
-print(datetime.datetime.fromtimestamp(1636761600))
-
 # Candlestick patterns: 32.8%, engulfing, etc,
 
 # Chart patterns: double tops, double bottoms
