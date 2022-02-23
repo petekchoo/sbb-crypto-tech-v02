@@ -58,8 +58,8 @@ def update_data(granularity=86400):
     Returns:
         None: fills in `../data/daily.csv' with updated data
     """
-    symbols = pd.read_csv('../data/symbols.csv', index_col=None)
-    daily = pd.read_csv('../data/daily.csv', index_col=None)
+    symbols = pd.read_csv('data/symbols.csv', index_col=None)
+    daily = pd.read_csv('data/daily.csv', index_col=None)
     new_daily = pd.DataFrame() # container for all new symbol data
     for symbol in symbols['symbol']: 
         daily_symbol = daily[daily['symbol'] == symbol]
@@ -88,7 +88,7 @@ def update_data(granularity=86400):
         new_daily = new_daily.append(new_data)
     daily = daily.append(new_daily)
     daily = daily.sort_values(['symbol', 'time']) # inefficient, but it will re-sort the daily file
-    daily.to_csv('../data/daily.csv', index=False)
+    daily.to_csv('data/daily.csv', index=False)
 
 
 # run file; can be called by live application daily

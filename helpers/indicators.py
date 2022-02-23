@@ -199,25 +199,26 @@ def getRSI(data, timeperiod):
 # Candlestick patterns: 32.8%, engulfing, etc,
 
 # 32.8 Candle: hammer or inverted hammer - potential reversal indicators
-def get382(candle):
+def get382(data):
     
-    # Check for bullish scenario, else check bearish scenario
-    if float(candle["close"]) > float(candle["open"]):
-        
-        # If entire candle falls within 38.2% Fibonnaci retracement, return True, else False
-        if float(candle["open"]) > \
-            float(candle["high"]) - ((float(candle["high"]) - float(candle["low"])) * 0.382):
-            return True
-        
+    for candle in data:
+        # Check for bullish scenario, else check bearish scenario
+        if float(candle["close"]) > float(candle["open"]):
+            
+            # If entire candle falls within 38.2% Fibonnaci retracement, return True, else False
+            if float(candle["open"]) > \
+                float(candle["high"]) - ((float(candle["high"]) - float(candle["low"])) * 0.382):
+                return "Bullish", True
+            
+            else:
+                return "Bullish", False
         else:
-            return False
-    else:
-        if float(candle["open"]) < \
-            float(candle["low"]) + ((float(candle["high"]) - float(candle["low"])) * 0.382):
-            return True
-        
-        else:
-            return False
+            if float(candle["open"]) < \
+                float(candle["low"]) + ((float(candle["high"]) - float(candle["low"])) * 0.382):
+                return "Bearish", True
+            
+            else:
+                return "Bearish", False
 
 # Engulfing Formation: another reversal indicator
 def getEngulfing(oldcandle, newcandle):
@@ -230,10 +231,10 @@ def getEngulfing(oldcandle, newcandle):
         if float(newcandle["open"]) > float(oldcandle["close"]) \
             and float(newcandle["close"]) < float(oldcandle["open"]):
 
-            return True
+            return "Bearish", True
         
         else:
-            return False
+            return "Bearish", False
     
     # Check for bullish scenario
     elif float(oldcandle["open"]) > float(oldcandle["close"]) \
@@ -243,14 +244,14 @@ def getEngulfing(oldcandle, newcandle):
         if float(newcandle["close"]) > float(oldcandle["open"]) \
             and float(newcandle["open"]) < float(oldcandle["close"]):
 
-            return True
+            return "Bullish", True
         
         else:
-            return False
+            return "Bullish", False
     
-    # If both candles are bearish or bullish, not an engulfins scenario
+    # If both candles are bearish or bullish, not an engulfing scenario
     else:
-        return False
+        return "Non-Engulfing"
 
 # Close above / below candles: reversal - indicates change in support or resistance
 
@@ -263,10 +264,10 @@ def getAboveBelow(oldcandle, newcandle):
         # Check close below
         if float(newcandle["close"]) < float(oldcandle["low"]):
 
-            return True
+            return "Bearish, Close Below", True
         
         else:
-            return False
+            return "Bearish", False
     
     # Check for bullish scenario
     elif float(oldcandle["open"]) > float(oldcandle["close"]) \
@@ -275,14 +276,14 @@ def getAboveBelow(oldcandle, newcandle):
         # Check close above
         if float(newcandle["close"]) > float(oldcandle["high"]):
 
-            return True
+            return "Bullish, Close Above", True
         
         else:
-            return False
+            return "Bullish", False
     
     # If both candles are bearish or bullish, not an engulfins scenario
     else:
-        return False
+        return "Not Above / Below"
 
 # print(getAboveBelow({"open":"50", "close": "30", "high": "50", "low": 10}, \
 #   {"open":"10", "close": "49", "high": "30", "low": 50}))
