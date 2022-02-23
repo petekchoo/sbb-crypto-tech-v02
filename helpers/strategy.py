@@ -7,28 +7,33 @@
 import csv
 import datetime
 import timedelta
-from indicators import fallingCheck, risingCheck, getATR, getSMA, getEMA
+import indicators
 
-lstDaily = []
-reader = csv.DictReader(open('data/daily.csv', mode='r', encoding='utf-8-sig'))
-lstDaily = list(reader)
+# Read in the Daily-level file in full, build list of dictionaries
+def getDaily():
 
-lstBTC100 = []
-account = None
+    lstDaily = []
+    reader = csv.DictReader(open('data/daily.csv', mode='r', encoding='utf-8-sig'))
+    lstDaily = list(reader)
 
-for entry in lstDaily:
+    return lstDaily
 
-    if entry["symbol"] == 'BTC-USD' and \
-        datetime.datetime.fromtimestamp(int(entry["time"])) >= \
-            (datetime.datetime.now() - datetime.timedelta(days=100)):
-        lstBTC100.append(entry)
+# Build sublist of dictionaries based on a dataset, symbol/ticker, and timeframe
+def setTradingData(data, symbol, timewindow):
 
-def returnIndicators(data):
+    lstReturn = []
 
-    return risingCheck(data), fallingCheck(data), \
-        getATR(data), getSMA(data), getEMA(data, 20)
+    for entry in data:
 
-def runStrategy():
-    return returnIndicators(lstBTC100)
+        if entry["symbol"] == symbol and \
+            datetime.datetime.fromtimestamp(int(entry["time"])) >= \
+                (datetime.datetime.now() - datetime.timedelta(days=timewindow)):
+            lstReturn.append(entry)
+    
+    return lstReturn
 
-print(runStrategy())
+def strategyMK1():
+
+    # Check for rising, falling past 5 days
+
+    return False
