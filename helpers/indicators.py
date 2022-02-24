@@ -141,7 +141,7 @@ def getEMA(data, timeperiod):
 
     # For loop to calculate the exponential moving average
     for candle in lstEMA:
-        returnEMA = (float(candle["close"]) - returnEMA) * floatMultiplier + returnEMA
+        returnEMA = (float(candle["close"]) * floatMultiplier) + (returnEMA * (1 - floatMultiplier))
 
     return returnEMA
 
