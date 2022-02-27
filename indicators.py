@@ -1,17 +1,5 @@
-# indicators.py: functions that take in sections of dates and output a signal for
-#                        the latest date (can combine with strategy.py)
-#             # simple_moving_average(data, window) --> SMA
-#             # exponential_moving_average(data, window) --> EMA
-#             # golden_cross(data, short_window, long_window) --> signal
-#             # death_cross(data, short_window, long_window) --> signal
-#             # ... any other TA signals
-
 # Test code for local development, will comment out once strategy.py is set up to pass along basic
 # params
-
-import csv
-import datetime
-
 '''
 lstDict = []
 reader = csv.DictReader(open('data/test-rise.csv', mode='r', encoding='utf-8-sig'))
@@ -38,98 +26,119 @@ lstRSI = [{'open':'44.34', 'close':'44.09'},
         ]
 '''
 
-# Basic directional: objective rising & falling signals based on impulsive moves and pullbacks
+# Key indicators: ATR, moving averages (20, 50, 200), RSI
 
 def risingCheck(data):
+    """
+    Basic directional: objective rising signals based on impulsive moves and pullbacks 
 
+    Args:
+        data (list): list of candlestick dictionaries
+
+    Returns:
+        bool: if price is rising
+    """
     currentLow = float(data[0]["low"])
     pullbackLow = float(data[0]["low"])
-    
     highestHigh = float(data[0]["high"])
     boolRising = True
-
     for candle in data:
-        
         # If low is lower than pullbackLow, return False
         if float(candle["low"]) < pullbackLow:
             boolRising = False
-
-        # If low is lower than lowestCurrent and higher than pullbackLow
-        #   set currentLow to low
+        # If low is lower than lowestCurrent and higher than pullbackLow set currentLow to low
         elif float(candle["low"]) < currentLow and float(candle["low"]) > pullbackLow:
             currentLow = float(candle["low"])
-        
         # If high is new highest, update highestHigh and set pullbackLow to currentLow
         elif float(candle["high"]) > highestHigh:
             highestHigh = float(candle["high"])
             pullbackLow = currentLow
             currentLow = float(candle["low"])
-
     return boolRising
 
-def fallingCheck(data):
 
+def fallingCheck(data):
+    """
+    Basic directional: objective falling signals based on impulsive moves and pullbacks 
+
+    Args:
+        data (list): list of candlestick dictionaries
+
+    Returns:
+        bool: if price is falling
+    """
     currentHigh = float(data[0]["low"])
     pullbackHigh = float(data[0]["low"])
-    
     lowestLow = float(data[0]["high"])
     boolFalling = True
-
     for candle in data:
-        
         # If high is higher than pullbackHigh, return False
         if float(candle["high"]) > pullbackHigh:
             boolFalling = False
-
-        # If high is higher than lowestCurrent and lower than pullbackHigh
-        #   set currentHigh to high
+        # If high is higher than lowestCurrent and lower than pullbackHigh set currentHigh to high
         elif float(candle["high"]) > currentHigh and float(candle["high"]) < pullbackHigh:
             currentHigh = float(candle["high"])
-        
         # If low is new lowest, update lowestLow and set pullbackHigh to currentHigh
         elif float(candle["low"]) < lowestLow:
             lowestLow = float(candle["low"])
             pullbackHigh = currentHigh
             currentHigh = float(candle["high"])
-
     return boolFalling
 
-# Key indicators: ATR, moving averages (20, 50, 200), RSI
 
-# Average True Range - volatility indicator: average of total price spreads across the dataset
 def getATR(data):
+    """
+    Average True Range - volatility indicator: average of total price spreads across the dataset 
 
+    Args:
+        data (list): list of candlestick dictionaries
+
+    Returns:
+        float: TODO
+    """
     intCounter = 0
     returnATR = 0
-
     for candle in data:
         returnATR += (float(candle["high"]) - float(candle["low"]))
         intCounter += 1
-    
     return (returnATR / intCounter)
 
-# Simple Moving Average: average of closing prices across the dataset
-def getSMA(data):
 
+def getSMA(data):
+    """
+    Simple Moving Average: average of closing prices across the dataset
+
+    Args:
+        data (list): list of candlestick dictionaries
+
+    Returns:
+        float: TODO
+    """
     intCounter = 0
     returnAvgPrice = 0
-
     for candle in data:
         returnAvgPrice += float(candle["close"])
         intCounter += 1
-    
     return (returnAvgPrice / intCounter)
 
-# Exponential Moving Average: weighted price average that favors recency in price movement
+ 
 def getEMA(data, timeperiod):
-    
+    """
+    Exponential Moving Average: weighted price average that favors recency in price movement
+
+    Args:
+        data (list): list of candlestick dictionaries
+        timeperiod (int): calculation window
+
+    Returns:
+        float: TODO
+    """
     lstSMA = []
     lstEMA = []
 
     # Separate data into initial SMA and subsequent EMA calculation window based on timeperiod
     for i in range(0, timeperiod):
         lstSMA.append(data[i])
-    
     for i in range(timeperiod, len(data)):
         lstEMA.append(data[i])
 
@@ -145,12 +154,20 @@ def getEMA(data, timeperiod):
 
     return returnEMA
 
-# Relative Strength Index: momentum indicator, current price relative to average highs / lows
+
 def getRSI(data, timeperiod):
+    """
+    Relative Strength Index: momentum indicator, current price relative to average highs / lows
+    RSI function from this article: https://school.stockcharts.com/doku.php?id=technical_indicators:relative_strength_index_rsi
+    Note: this uses a smoothing function vs. moving frame - may need to reevaluate (TODO)
 
-    # RSI function from this article: https://school.stockcharts.com/doku.php?id=technical_indicators:relative_strength_index_rsi
-    # Note this uses a smoothing function vs. moving frame - may need to reevaluate
+    Args:
+        data (list): list of candlestick dictionaries
+        timeperiod (int): calculation window
 
+    Returns:
+        float: TODO
+    """
     lstInit = []
     lstRSI = []
     lstGains = []
@@ -164,7 +181,6 @@ def getRSI(data, timeperiod):
     # Separate data into initial and subsequent calculation window based on timeperiod
     for i in range(0, timeperiod):
         lstInit.append(data[i])
-    
     for i in range(timeperiod, len(data)):
         lstRSI.append(data[i])
 
@@ -196,88 +212,95 @@ def getRSI(data, timeperiod):
 
     return RSI
 
+
 # Candlestick patterns: 32.8%, engulfing, etc,
 
-# 32.8 Candle: hammer or inverted hammer - potential reversal indicators
-def get382(data):
-    
+def get328(data):
+    """
+    32.8 Candle: hammer or inverted hammer - potential reversal indicators
+    Args:
+        data (list): list of candlestick dictionaries
+
+    Returns:
+        tuple (str, bool): TODO 
+    """
     for candle in data:
         # Check for bullish scenario, else check bearish scenario
-        if float(candle["close"]) > float(candle["open"]):
-            
+        if float(candle["close"]) > float(candle["open"]):  
             # If entire candle falls within 38.2% Fibonnaci retracement, return True, else False
             if float(candle["open"]) > \
                 float(candle["high"]) - ((float(candle["high"]) - float(candle["low"])) * 0.382):
-                return "Bullish", True
-            
+                return "Bullish", True  
             else:
                 return "Bullish", False
         else:
             if float(candle["open"]) < \
                 float(candle["low"]) + ((float(candle["high"]) - float(candle["low"])) * 0.382):
                 return "Bearish", True
-            
             else:
                 return "Bearish", False
 
-# Engulfing Formation: another reversal indicator
-def getEngulfing(oldcandle, newcandle):
 
+def getEngulfing(oldcandle, newcandle):
+    """
+    Engulfing Formation: another reversal indicator
+    
+    Args:
+        olcandle (dict):
+        newcandle (dict): 
+
+    Returns:
+        tuple (str, bool): TODO 
+    """
     # Check for bearish scenario
     if float(oldcandle["close"]) > float(oldcandle["open"]) \
         and float(newcandle["open"]) > float(newcandle["close"]):
-
         # Check engulfing
         if float(newcandle["open"]) > float(oldcandle["close"]) \
             and float(newcandle["close"]) < float(oldcandle["open"]):
-
             return "Bearish", True
-        
         else:
             return "Bearish", False
-    
     # Check for bullish scenario
     elif float(oldcandle["open"]) > float(oldcandle["close"]) \
         and float(newcandle["close"]) > float(newcandle["open"]):
-
         # Check engulfing
         if float(newcandle["close"]) > float(oldcandle["open"]) \
             and float(newcandle["open"]) < float(oldcandle["close"]):
-
             return "Bullish", True
-        
         else:
             return "Bullish", False
-    
     # If both candles are bearish or bullish, not an engulfing scenario
     else:
         return "Non-Engulfing"
 
-# Close above / below candles: reversal - indicates change in support or resistance
 
 def getAboveBelow(oldcandle, newcandle):
-
+    """
+    Close above / below candles: reversal - indicates change in support or resistance
+    
+    Args:
+        olcandle (dict):
+        newcandle (dict): 
+        
+    Returns:
+        tuple (str, bool): TODO 
+    """
     # Check for bearish scenario
     if float(oldcandle["close"]) > float(oldcandle["open"]) \
         and float(newcandle["open"]) > float(newcandle["close"]):
-
         # Check close below
         if float(newcandle["close"]) < float(oldcandle["low"]):
-
             return "Bearish, Close Below", True
-        
         else:
             return "Bearish", False
     
     # Check for bullish scenario
     elif float(oldcandle["open"]) > float(oldcandle["close"]) \
         and float(newcandle["close"]) > float(newcandle["open"]):
-
         # Check close above
         if float(newcandle["close"]) > float(oldcandle["high"]):
-
             return "Bullish, Close Above", True
-        
         else:
             return "Bullish", False
     

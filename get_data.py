@@ -2,7 +2,7 @@ import pandas as pd, json, requests, time
 from datetime import datetime, timedelta
 
 
-def get_product_candles(symbol, start, end, granularity=86400):
+def getProductCandles(symbol, start, end, granularity=86400):
     """
     Formats API call to Coinbase to download historical candlestick data for `symbol`
     Reference: https://docs.cloud.coinbase.com/exchange/reference/exchangerestapi_getproductcandles
@@ -29,7 +29,7 @@ def get_product_candles(symbol, start, end, granularity=86400):
     return lst
 
 
-def epoch_to_isoformat(epoch):
+def epochToISOFormat(epoch):
     """
     Converts epoch date in data files to string format for API calls
 
@@ -42,55 +42,61 @@ def epoch_to_isoformat(epoch):
     return datetime.utcfromtimestamp(epoch).isoformat()
 
 
-def update_data(granularity=86400):
+def updateData(granularity=86400):
     """
-    For each symbol in `../data/symbols.csv`, downloads market data from Coinbase
-    from the latest date in `../data/daily.csv` to current date. If the symbol does
+    For each symbol in `data/symbols.csv`, downloads market data from Coinbase
+    from the latest date in `data/daily.csv` to current date. If the symbol does
     not exist in the daily file yet, then it will download data from Jan 1, 2017 
     to the current date. 
-
-    TODO: Currently hard-coded to only work with daily.csv but can be extended to pull 
-    additional granularities in the future.  
 
     Args:
         granularity (int): desired timeslice in seconds; currently only works for daily
 
     Returns:
-        None: fills in `../data/daily.csv' with updated data
+        None: fills in `data/daily.csv' with updated data
     """
+    if granularity == 86400: 
+        fileName = 'daily.csv'
+    elif granularity == 60: 
+        fileName = 'minute.csv'
+    else: 
+        print('updateData error: choose valid granularity')
+        return None
+
     symbols = pd.read_csv('data/symbols.csv', index_col=None)
-    daily = pd.read_csv('data/daily.csv', index_col=None)
-    new_daily = pd.DataFrame() # container for all new symbol data
+    file = pd.read_csv('data/' + fileName, index_col=None)
+    newFile = pd.DataFrame() # container for all new symbol data
     for symbol in symbols['symbol']: 
-        daily_symbol = daily[daily['symbol'] == symbol]
-        if len(daily_symbol) > 0:   # define start 
-            start = daily_symbol['time'].max()
+        print('Fetching ', symbol, '...')
+        fileSymbol = file[file['symbol'] == symbol]
+        if len(fileSymbol) > 0:   # define start 
+            start = fileSymbol['time'].max()
             start = start + granularity
         else: 
             start = datetime(2017,1,1).timestamp()
         end = datetime.now()    # define end
-        end = end - timedelta(hours=end.hour,        # Round now() to current day
-                                minutes=end.minute,  # by removing hour, min, etc.
-                                seconds=end.second,
-                                microseconds=end.microsecond) 
+        # end = end - timedelta(hours=end.hour,        # Round now() to current day
+        #                         minutes=end.minute,  # by removing hour, min, etc.
+        #                         seconds=end.second,
+        #                         microseconds=end.microsecond) 
         end = end.timestamp()
-        new_data = [] # container for all api call results
+        newData = [] # container for all api call results
         while start < end: # chunk api calls based on start and end dates
             e = start + granularity * 250 # include 250 rows in each api call
-            candles = get_product_candles(symbol, 
-                                        epoch_to_isoformat(start), 
-                                        epoch_to_isoformat(e), 
+            candles = getProductCandles(symbol, 
+                                        epochToISOFormat(start), 
+                                        epochToISOFormat(e), 
                                         granularity=granularity)
-            new_data.extend(candles)
+            newData.extend(candles)
             start = e + granularity
-        new_data = pd.DataFrame(new_data, columns=['time', 'low', 'high', 'open', 'close', 'volume'])
-        new_data['symbol'] = symbol # add symbol column to all responses for this symbol
-        new_daily = new_daily.append(new_data)
-    daily = daily.append(new_daily)
-    daily = daily.sort_values(['symbol', 'time']) # inefficient, but it will re-sort the daily file
-    daily.to_csv('data/daily.csv', index=False)
+        newData = pd.DataFrame(newData, columns=['time', 'low', 'high', 'open', 'close', 'volume'])
+        newData['symbol'] = symbol # add symbol column to all responses for this symbol
+        newFile = newFile.append(newData)
+    file = file.append(newFile)
+    file = file.sort_values(['symbol', 'time']) # inefficient, but it will re-sort the file
+    file.to_csv('data/' + fileName, index=False)
 
 
 # run file; can be called by live application daily
-# will update the `../data/daily.csv` file if possible
-update_data()
+# will update the data file if possible
+updateData()
