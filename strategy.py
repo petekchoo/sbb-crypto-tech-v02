@@ -104,22 +104,22 @@ def generateIndicators(symbol, latestdate):
     return lstIndicators
 
 
-def checkGoldenCross(symbol, latestdate):
+def checkGoldenCross(symbol, pricedata, latestdate):
     """
-    TODO: write description
+    Determines whether the short-term (20-day) exponential moving average has crossed / is crossing the
+    long-term (100-day) exponential moving average in today's trade. Requires 100 days of price history in order to execute.
 
     Args:
         symbol (str)
+        pricedata (list of candle dictionaries)
         latestdate (datetime)
 
     Returns:
-        list: list of indicator outputs
+        bool: True if crossing (buy signal) or False if not (inaction signal)
     """
 
-    # Pull latest daily list, pull down the full dataset for the symbol
-    lstDaily = getDaily()
-    lstSymbol = setTradingData(lstDaily, symbol, latestdate, 99999)
-    
+    lstSymbol = pricedata
+
     # Starting with the oldest data, iteratively check the 20-Day EMA and store in list
     lst20EMA = []
     lstWindow = lstSymbol[0:20]
@@ -142,23 +142,20 @@ def checkGoldenCross(symbol, latestdate):
         lstWindow.append(lstSymbol[intCounter])
         intCounter += 1
 
-    # Iterate through historical EMA lists to identify crossing points
+    # Check last two short-term and long-term EMA calculations to see if a golden cross is occurring or not
+    if lst20EMA[len(lst20EMA)-2] < lst100EMA[len(lst100EMA)-2] and lst20EMA[-1] >= lst100EMA[-1]:
+        return True
+    
+    else:
+        return False
 
-    intCounter = 0
-    boolGolden = False
-    boolDeath = False
-
-    return lst20EMA, len(lst20EMA)
-
-lstSymbols = getSymbols()
-dateLatest = datetime(2022, 2, 21, 23, 59, 59)
 # print(datetime.fromtimestamp(1645488000))
 
 
 def runStrategy(latestdate, account, params):
     """
     Called in backtest.py. params is a dictionary containing hyperparameters to test from backtest.
-    account is 
+    Account is an object class which stores account balance and trading positions.
 
 
     Args:
@@ -171,19 +168,27 @@ def runStrategy(latestdate, account, params):
     """
     data = getDaily()
     symbols = getSymbols()
+    
     for symbol in symbols: 
         symbolData = setTradingData(data, symbol, latestdate, 1)
-        # indicators = generateIndicators(latestdate, params)
+        
+        # Runs a check for Golden Cross conditions and enters a trading position 
         if checkGoldenCross(symbol, latestdate): # TODO: strategy to implement
+            
+            # Calculates the ATR for the symbol and the last 14 trading days to determine the risk / reward ratio for the trade
+            floatATR = indicators.getATR(setTradingData(data, symbol, datetime.datetime.today(), 14)
+
             price = symbolData[0]['open'] # TODO: Build in sensitivity to buy price
             qty = 1000 / price # $1000 USD worth of whatever the symbol is on this day
                                # TODO: include balance/risk-adjusted qty's? 
             account.buy(symbol, price, qty, latestdate)
+        
         # elif checkDeathCross(symbol, latestdate): TODO: implement sell conditions
             # price = symbolData[0]['open'] # TODO: Build in sensitivity to sell price
             # qty = account.get_portfolio()[symbol] # sell all holdings
                                # TODO: include balance/risk-adjusted qty's? 
             # account.sell(symbol, price, qty, latestdate)
+    
     return account
 
 print(checkGoldenCross("BTC-USD", dateLatest))

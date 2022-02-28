@@ -83,7 +83,7 @@ class Account:
             time (int): timestamp of trade
 
         Returns:
-            None
+            PKC: returns / stores trade confirmation data from trading API?
         """
         # TODO: Get from Coinbase API
         pass
