@@ -1,6 +1,5 @@
-import csv, indicators
+import csv, indicators, accounts
 from datetime import datetime, timedelta
-
 
 def getSymbols():
     """
@@ -36,18 +35,22 @@ def setTradingData(data, symbol, latestdate, timeWindow):
         data (list): list of candles
         symbol (str): symbol to subset
         latestdate (datetime): most recent period to include
-        timeWindow (int): number of periods to include, starting from latestdate
+        timeWindow (int): number of periods to include, starting from latestdate, if value is "ALL", return all
 
     Returns:
         list: list of candles
     """
     lstReturn = []
     for entry in data:
-        if entry["symbol"] == symbol and \
+        if entry["symbol"] == symbol and timeWindow == "ALL":
+            lstReturn.append(entry)
+        
+        elif entry["symbol"] == symbol and \
             datetime.fromtimestamp(int(entry["time"])) <= latestdate \
                 and datetime.fromtimestamp(int(entry["time"])) > \
-                (latestdate - timedelta(days=timeWindow)):
+                (latestdate - timedelta(days=timeWindow + 1)):
             lstReturn.append(entry)
+    
     return lstReturn
 
 
@@ -104,53 +107,74 @@ def generateIndicators(symbol, latestdate):
     return lstIndicators
 
 
-def checkGoldenCross(symbol, pricedata, latestdate):
+def checkGoldenCross(pricedata, latestdate):
     """
     Determines whether the short-term (20-day) exponential moving average has crossed / is crossing the
-    long-term (100-day) exponential moving average in today's trade. Requires 100 days of price history in order to execute.
+    long-term (100-day) exponential moving average in today's trade. Requires 200 days of price history in order to execute.
 
     Args:
-        symbol (str)
-        pricedata (list of candle dictionaries)
-        latestdate (datetime)
+        pricedata (list of candle dictionaries): 200 days of candles from a given symbol set in getStrategy
+        latestdate (datetime): today for live trading, past days
 
     Returns:
         bool: True if crossing (buy signal) or False if not (inaction signal)
     """
 
-    lstSymbol = pricedata
+    lstCandles = pricedata
 
     # Starting with the oldest data, iteratively check the 20-Day EMA and store in list
     lst20EMA = []
-    lstWindow = lstSymbol[0:20]
+    lstWindow = lstCandles[0:20]
     intCounter = 20
 
-    while intCounter < len(lstSymbol):
+    while intCounter < len(lstCandles):
         lst20EMA.append(indicators.getEMA(lstWindow, 20))
         lstWindow.pop(0)
-        lstWindow.append(lstSymbol[intCounter])
+        lstWindow.append(lstCandles[intCounter])
         intCounter += 1
 
     # Starting with the oldest data, iteratively check the 100-Day EMA and store in list
     lst100EMA = []
-    lstWindow = lstSymbol[0:100]
+    lstWindow = lstCandles[0:100]
     intCounter = 100
 
-    while intCounter < len(lstSymbol):
+    while intCounter < len(lstCandles):
         lst100EMA.append(indicators.getEMA(lstWindow, 100))
         lstWindow.pop(0)
-        lstWindow.append(lstSymbol[intCounter])
+        lstWindow.append(lstCandles[intCounter])
         intCounter += 1
 
     # Check last two short-term and long-term EMA calculations to see if a golden cross is occurring or not
+    print(datetime.fromtimestamp(int(lstCandles[len(lstCandles)-1]["time"])))
+    print("Yesterday's 20-Day EMA:", round(lst20EMA[len(lst20EMA)-2], 2))
+    print("Yesterday's 100-Day EMA:", round(lst100EMA[len(lst100EMA)-2], 2))
+    
+    yLSD = round(lst100EMA[len(lst100EMA)-2] - lst20EMA[len(lst20EMA)-2], 2)
+    
+    print("Yesterday's Long/Short Delta:", yLSD)
+
+    tLSD = round(lst100EMA[-1] - lst20EMA[-1], 2)
+
+    print("Today's 20-Day EMA:", round(lst20EMA[-1], 2))
+    print("Today's 100-Day EMA:", round(lst100EMA[-1], 2))
+    print("Today's Long/Short Delta:", tLSD)
+
+    if tLSD < yLSD:
+        daysToIntersect = tLSD / (yLSD - tLSD)
+        deltLSD = "Approaching, remaining days to intercept: " + str(round(daysToIntersect, 2))
+    elif tLSD > yLSD:
+        deltLSD = "Separating"
+    elif tLSD == yLSD:
+        deltLSD = "Parallel"
+
+    print("Long/Short Delta Difference:", round(tLSD - yLSD, 2))
+    print("Long/Short Directionality:", deltLSD)
+    
     if lst20EMA[len(lst20EMA)-2] < lst100EMA[len(lst100EMA)-2] and lst20EMA[-1] >= lst100EMA[-1]:
         return True
     
     else:
         return False
-
-# print(datetime.fromtimestamp(1645488000))
-
 
 def runStrategy(latestdate, account, params):
     """
@@ -159,7 +183,7 @@ def runStrategy(latestdate, account, params):
 
 
     Args:
-        latestdate (datetime): period to run the strategy on
+        latestdate (datetime): the last day to be considered in the strategy (today for live trading, historical for backtesting)
         account (TestAccount): TestAccount instance containing balance, holdings, etc.
         params (dict): dictionary of hyperparameters for the strategy
 
@@ -170,25 +194,21 @@ def runStrategy(latestdate, account, params):
     symbols = getSymbols()
     
     for symbol in symbols: 
-        symbolData = setTradingData(data, symbol, latestdate, 1)
+        lstGoldenCross = setTradingData(data, symbol, latestdate, 100)
         
         # Runs a check for Golden Cross conditions and enters a trading position 
-        if checkGoldenCross(symbol, latestdate): # TODO: strategy to implement
+        if checkGoldenCross(lstGoldenCross, latestdate): # TODO: strategy to implement
             
             # Calculates the ATR for the symbol and the last 14 trading days to determine the risk / reward ratio for the trade
-            floatATR = indicators.getATR(setTradingData(data, symbol, datetime.datetime.today(), 14)
+            floatATR = indicators.getATR(setTradingData(data, symbol, datetime.datetime.today(), 14))
 
-            price = symbolData[0]['open'] # TODO: Build in sensitivity to buy price
+            price = lstGoldenCross[0]['open'] # TODO: Build in sensitivity to buy price
             qty = 1000 / price # $1000 USD worth of whatever the symbol is on this day
                                # TODO: include balance/risk-adjusted qty's? 
-            account.buy(symbol, price, qty, latestdate)
+            accounts.buy(symbol, price, qty, latestdate)
         
-        # elif checkDeathCross(symbol, latestdate): TODO: implement sell conditions
-            # price = symbolData[0]['open'] # TODO: Build in sensitivity to sell price
-            # qty = account.get_portfolio()[symbol] # sell all holdings
-                               # TODO: include balance/risk-adjusted qty's? 
-            # account.sell(symbol, price, qty, latestdate)
+        # TODO: additional strategies (e.g., death cross)
     
     return account
 
-print(checkGoldenCross("BTC-USD", dateLatest))
+print(checkGoldenCross(setTradingData(getDaily(), "SOL-USD", datetime.today(), "ALL"), datetime.today()))
