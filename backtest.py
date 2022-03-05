@@ -1,6 +1,6 @@
 import pandas as pd, numpy as np
 from datetime import datetime
-from account import TestAccount
+from accounts import TestAccount
 import strategy
 
 

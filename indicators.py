@@ -54,6 +54,7 @@ def risingCheck(data):
             highestHigh = float(candle["high"])
             pullbackLow = currentLow
             currentLow = float(candle["low"])
+    
     return boolRising
 
 
@@ -67,15 +68,15 @@ def fallingCheck(data):
     Returns:
         bool: if price is falling
     """
-    currentHigh = float(data[0]["low"])
-    pullbackHigh = float(data[0]["low"])
-    lowestLow = float(data[0]["high"])
+    currentHigh = float(data[0]["high"])
+    pullbackHigh = float(data[0]["high"])
+    lowestLow = float(data[0]["low"])
     boolFalling = True
     for candle in data:
         # If high is higher than pullbackHigh, return False
         if float(candle["high"]) > pullbackHigh:
             boolFalling = False
-        # If high is higher than lowestCurrent and lower than pullbackHigh set currentHigh to high
+        # If high is higher than currentHigh and lower than pullbackHigh set currentHigh to high
         elif float(candle["high"]) > currentHigh and float(candle["high"]) < pullbackHigh:
             currentHigh = float(candle["high"])
         # If low is new lowest, update lowestLow and set pullbackHigh to currentHigh
@@ -83,6 +84,7 @@ def fallingCheck(data):
             lowestLow = float(candle["low"])
             pullbackHigh = currentHigh
             currentHigh = float(candle["high"])
+    
     return boolFalling
 
 

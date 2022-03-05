@@ -8,21 +8,26 @@ class TestAccount:
         and $5000 available cash to spend, unless a custom balance is provided.  
         """
         self.balance = balance
-        self.portfolio = defaultdict(float)
+        self.open_positions = [] # list of dicts holding open trading positions by type
         self.trade_history = [] # container for past trades
 
 
-    def buy(self, symbol, price, qty, time=None): 
+    def trade(self, type, symbol, price, quantity, stoploss, profittarget, latestdate): 
         """
         Args: 
+            type (str): buy or short
             symbol (str): ticker to trade (TODO: This will work for now, since all quote currency is USD)
-            price (float): buy price
-            qty (float): qty to buy
-            time (int): timestamp of trade
+            price (float): buy price - calculated as the midpoint of the latest candle's open and close prices
+            quantity (float): qty to buy - calculated based on the desired trading amount in strategy.py and the price of the symbol
+            stoploss (float): price below which to sell on a bullish trade or buy / close for a short position
+            profittarget (float): price above which to sell to take profit on a bullish trade, or the reverse for a short position
+            latestdate (int): datetime of the execution of the trading event - today for live trading, historical dates for backtesting
 
         Returns:
             None: updates TestAccount attributes
         """
+        
+        ''' TEMP: removing affordability check and allowing balance to go below zero
         balance_required = price * qty
         if balance_required > self.balance: 
             print('Buy error: Not enough cash to execute trade for {0} {1} at {2} (total \
@@ -32,33 +37,56 @@ class TestAccount:
             self.portfolio[symbol] += qty
             self.balance -= balance_required
             self.trade_history.append([time, 'buy', symbol, price, qty])
-    
+        '''
 
-    def sell(self, symbol, price, qty, time=None): 
+        # Execute trade, decrement balance, and add to open_positions based on trade type
+
+        # Buy scenario
+        if type == "buy": 
+            # TODO: API call placeholder
+            self.balance -= price * quantity
+            self.open_positions.append({"time": latestdate,
+                                        "symbol": symbol,
+                                        "price": price,
+                                        "quantity": quantity,
+                                        "stoploss": stoploss,
+                                        "profittarget": profittarget,
+                                        "status": True})
+
+        # Short scenario
+
+    def close(self, symbol, price): 
         """
         Args: 
-            symbol (str): ticker to trade (TODO: This will work for now, since all quote currency is USD)
-            price (float): sell price
-            qty (float): qty to sell
-            time (int): timestamp of trade
+            symbol (str): security to execute against
+            price (float): midpoint of the open / close price of the latest candle
 
         Returns:
             None: updates TestAccount attributes
         """
-        if self.portfolio[symbol] < qty: 
-            print('Sell error: Not enough {0} to execute trade for {1} {2} at {3} (portfolio \
-                contains {4} {5}).'.format(symbol, qty, symbol, price, self.portfolio[symbol], 
-                symbol))
-        else: # execute trade
-            self.portfolio[symbol] -= qty
-            self.balance += qty * price
-            self.trade_history.append([time, 'sell', symbol, price, qty])
+        # Iterate through all open positions for the relevant symbol
+        for position in self.open_positions:
+            if position["symbol"] == symbol:
+
+                # Check if the price breaks the position's profit target and if the position is still open
+                if price >= position["profittarget"] and position["status"] == True:
+
+                    # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
+                    self.balance += price * position["quantity"]
+                    position["status"] = False
+                
+                # Check if the price breaks the position's stop-loss and if the position is still open
+                elif price < position["stoploss"] and position["status"] == True:
+
+                    # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
+                    self.balance += price * position["quantity"]
+                    position["status"] = False
     
     def get_balance(self):
         return self.balance
 
-    def get_portfolio(self):
-        return self.portfolio
+    def get_open_positions(self):
+        return self.open_positions
 
     def get_trade_history(self):
         return self.trade_history

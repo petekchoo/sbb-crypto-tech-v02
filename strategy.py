@@ -1,4 +1,4 @@
-import csv, indicators, accounts
+import csv, indicators, accounts, pandas
 from datetime import datetime, timedelta
 
 def getSymbols():
@@ -53,7 +53,222 @@ def setTradingData(data, symbol, latestdate, timeWindow):
     
     return lstReturn
 
+def checkCross(pricedata):
+    """
+    Looks for golden and death cross scenarios based on 20-day and 100-day EMAs, specifically seeking a cross event in the last two candles
 
+    Args:
+        pricedata (list of candle dictionaries): 200 days of candles from a given symbol set in getStrategy
+
+    Returns:
+        list: list of three dictionaries that contain yesterday's and today's short- and long-term EMAs, the cross condition, and
+                distance to intercept if relevant (else None)
+    """
+
+    lstCandles = pricedata
+
+    # Starting with the oldest data, iteratively check the 20-Day EMA and store in list
+    lst20EMA = []
+    lstWindow = lstCandles[0:20]
+    intCounter = 20
+
+    while intCounter < len(lstCandles):
+        lst20EMA.append(indicators.getEMA(lstWindow, 20))
+        lstWindow.pop(0)
+        lstWindow.append(lstCandles[intCounter])
+        intCounter += 1
+
+    # Starting with the oldest data, iteratively check the 100-Day EMA and store in list
+    lst100EMA = []
+    lstWindow = lstCandles[0:100]
+    intCounter = 100
+
+    while intCounter < len(lstCandles):
+        lst100EMA.append(indicators.getEMA(lstWindow, 100))
+        lstWindow.pop(0)
+        lstWindow.append(lstCandles[intCounter])
+        intCounter += 1
+
+    # Set variables for evaluating cross checks
+    yesterday20EMA = lst20EMA[len(lst20EMA)-2]
+    yesterday100EMA = lst100EMA[len(lst100EMA)-2]
+    today20EMA = lst20EMA[-1]
+    today100EMA = lst100EMA[-1]
+    
+    yestLongShortDistance = abs(yesterday20EMA - yesterday100EMA)
+    todayLongShortDistance = abs(today20EMA - today100EMA)
+
+    strCondition = ""
+    floatInterceptDays = None
+    
+    # Store variables in a list of dictionaries that can be appended and analyzed by the strategy / backtesting functions
+    # Each list contains three dicts: yesterday's long- and short-term EMA, today's long- and short-term EMA, and the latest
+    # cross 'condition' and days to intercept on current trajectory.
+    lstDictData = [{"day1short": yesterday20EMA,
+                    "day1long": yesterday100EMA},
+                    {"day2short": today20EMA,
+                    "day2long": today100EMA},
+                    {"condition": strCondition,
+                    "intercept": floatInterceptDays}]
+
+    # PLACEHOLDER for function to extrapolate the X day intercept of the short- and long-term EMAs using linear regression.
+
+    # Determine golden vs. death, if long/short gap is closing or expanding - if closing, project intersect (simple linear)
+    if yesterday20EMA > yesterday100EMA and today20EMA > today100EMA: # Short-term is above long-term yesterday and today
+        if yestLongShortDistance > todayLongShortDistance: # Short-term approaching long-term from above
+            lstDictData[2]["condition"] = "Short-term approaching long-term from above"
+            lstDictData[2]["intercept"] = round(todayLongShortDistance/(yestLongShortDistance-todayLongShortDistance), 2)
+
+            return lstDictData
+        
+        elif yestLongShortDistance < todayLongShortDistance: # Short-term moving away from long-term from above
+            lstDictData[2]["condition"] = "Short-term rising further above long-term"
+            lstDictData[2]["intercept"] = None
+
+            return lstDictData
+    
+    elif yesterday20EMA < yesterday100EMA and today20EMA < today100EMA: # Short-term is below long-term yesterday and today
+        if yestLongShortDistance > todayLongShortDistance: # Short-term approaching long-term from below
+            lstDictData[2]["condition"] = "Short-term approaching long-term from below"
+            lstDictData[2]["intercept"] = round(todayLongShortDistance/(yestLongShortDistance-todayLongShortDistance), 2)
+
+            return lstDictData
+        
+        elif yestLongShortDistance < todayLongShortDistance: # Short-term moving away from long-term from below
+            lstDictData[2]["condition"] = "Short-term sinking lower below long-term"
+            lstDictData[2]["intercept"] = None
+
+            return lstDictData
+    
+    elif yesterday20EMA > yesterday100EMA and today20EMA <= today100EMA: # Death cross occurring today
+        lstDictData[2]["condition"] = "DEATH CROSS!"
+        lstDictData[2]["intercept"] = None
+
+        return lstDictData
+    
+    elif yesterday20EMA < yesterday100EMA and today20EMA >= today100EMA: # Golden cross occurring today
+        lstDictData[2]["condition"] = "GOLDEN CROSS!"
+        lstDictData[2]["intercept"] = None
+
+        return lstDictData
+
+def runStrategy(lstCandles, account, params):
+    """
+    Called in backtest.py. params is a dictionary containing hyperparameters to test from backtest.
+    Account is an object class which stores account balance and trading positions.
+
+    Args:
+        latestdate (datetime): the last day to be considered in the strategy (today for live trading, historical for backtesting)
+        account (TestAccount): TestAccount instance containing balance, holdings, etc.
+        params (dict): dictionary of hyperparameters for the strategy
+
+    Returns:
+        account: returns updated account object
+    """
+    
+    # Build a subset of data specific to the symbol
+    intWindow = 14
+
+    # Check ATR to determine spread for trade
+    floatATR = indicators.getATR(lstCandles)
+    
+    # Set a trading price and quantity based on the midpoint of the current day's candle
+    if float(lstCandles[-1]["open"]) <= float(lstCandles[-1]["close"]): # Price closed above open
+        floatPrice = float(lstCandles[-1]["open"]) + ((float(lstCandles[-1]["close"]) - float(lstCandles[-1]["open"])/2))
+    else: # Price closed below open
+        floatPrice = float(lstCandles[-1]["open"]) - ((float(lstCandles[-1]["open"]) - float(lstCandles[-1]["close"])/2))
+
+    tradeAmount = 10 # Trade in $10 increments
+    floatQuantity = tradeAmount / floatPrice # Quantity is $10 worth of given symbol on the date (midpoint price)
+    
+    # Set stop-loss and profit target based on ATR and targeted profit multiple
+    profitMultiple = 2.0
+    floatStopLoss = floatPrice - floatATR
+    floatProfitTarget = floatPrice + (floatATR * profitMultiple)
+
+    # Check for 14-day rising / falling trends plus corresponding RSI support
+    # Note: using wider than standard RSI bands to drive higher trading activity for testing
+    if indicators.risingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) <= 50:
+        
+        print("Buying!")
+        # Bullish stop-loss set 1x ATR below, profit target set 2x ATR above the trading price
+        floatStopLoss = floatPrice - floatATR
+        floatProfitTarget = floatPrice + (floatATR * profitMultiple)
+        
+        account.trade("buy",
+                        lstCandles[-1]["symbol"],
+                        floatPrice,
+                        floatQuantity,
+                        floatStopLoss,
+                        floatProfitTarget,
+                        lstCandles[-1]["time"])
+
+    elif indicators.fallingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) >= 50:
+        
+        # Bearish stop-loss set 1x ATR above, profit target set 2x ATR below the trading price
+        floatStopLoss = floatPrice + floatATR
+        floatProfitTarget = floatPrice - (floatATR * profitMultiple)
+
+        account.trade("short",
+                        lstCandles[-1]["symbol"],
+                        floatPrice,
+                        floatQuantity,
+                        floatStopLoss,
+                        floatProfitTarget,
+                        lstCandles[-1]["time"])
+    
+    # TODO: write check position logic to exit positions based on stop-loss and profit targets of open positions
+    
+    return account
+
+##### LOCAL TESTING FOR STRATEGY FUNCTIONS #####
+
+lstSymbols = getSymbols()
+intGoldenCrosses = 0
+
+# TEST: Iterates through all symbols starting 200 days after the earliest available data (needed to set initial EMA window)
+#       Checks for golden and death cross conditions every day after day 200.
+#       Since checkCross compares the previous day's averages to today's, the function returns a tuple with both days' data
+#       that can be stored for modeling / visualization purposes later.
+
+lstTest = setTradingData(getDaily(), "BTC-USD", datetime.today(), "ALL")
+lstStart = lstTest[0:15]
+intCounter = 15
+accountAlpha = accounts.TestAccount()
+
+while intCounter < len(lstTest):
+
+    ''' Crosses unit testing
+    if checkCross(lstStart)[2]["condition"] == "DEATH CROSS!":
+        print(datetime.fromtimestamp(int(lstStart[-1]["time"])))
+        print(checkCross(lstStart))
+        print()
+    '''
+    
+    ''' Rising / falling + RSI unit testing
+    if indicators.risingCheck(lstStart) == True and indicators.getRSI(lstStart, 7) <= 50:
+        print("Bought on:", datetime.fromtimestamp(int(lstStart[-1]["time"])))
+    
+    elif indicators.fallingCheck(lstStart) == True and indicators.getRSI(lstStart, 14) >= 50:
+        print("Shorted on:", datetime.fromtimestamp(int(lstStart[-1]["time"])))
+    '''
+    
+    # Test account trading function throughout history
+    
+    runStrategy(lstStart, accountAlpha, None)
+
+    # Iteration logic for "moving window"
+    lstStart.append(lstTest[intCounter])
+    lstStart.pop(0)
+    intCounter += 1
+
+for position in accountAlpha.get_open_positions():
+    print(position)
+    print()
+
+###### GRAVEYARD: Deprecated or retired functions #######
+
+'''
 def generateIndicators(symbol, latestdate):
     """
     Rudimentary test function to take a symbol and point in time date to acquire indicators. 
@@ -105,110 +320,4 @@ def generateIndicators(symbol, latestdate):
     print("Above/Below Candle:", indicators.getAboveBelow(lst2[0], lst2[1]))
 
     return lstIndicators
-
-
-def checkGoldenCross(pricedata, latestdate):
-    """
-    Determines whether the short-term (20-day) exponential moving average has crossed / is crossing the
-    long-term (100-day) exponential moving average in today's trade. Requires 200 days of price history in order to execute.
-
-    Args:
-        pricedata (list of candle dictionaries): 200 days of candles from a given symbol set in getStrategy
-        latestdate (datetime): today for live trading, past days
-
-    Returns:
-        bool: True if crossing (buy signal) or False if not (inaction signal)
-    """
-
-    lstCandles = pricedata
-
-    # Starting with the oldest data, iteratively check the 20-Day EMA and store in list
-    lst20EMA = []
-    lstWindow = lstCandles[0:20]
-    intCounter = 20
-
-    while intCounter < len(lstCandles):
-        lst20EMA.append(indicators.getEMA(lstWindow, 20))
-        lstWindow.pop(0)
-        lstWindow.append(lstCandles[intCounter])
-        intCounter += 1
-
-    # Starting with the oldest data, iteratively check the 100-Day EMA and store in list
-    lst100EMA = []
-    lstWindow = lstCandles[0:100]
-    intCounter = 100
-
-    while intCounter < len(lstCandles):
-        lst100EMA.append(indicators.getEMA(lstWindow, 100))
-        lstWindow.pop(0)
-        lstWindow.append(lstCandles[intCounter])
-        intCounter += 1
-
-    # Check last two short-term and long-term EMA calculations to see if a golden cross is occurring or not
-    print(datetime.fromtimestamp(int(lstCandles[len(lstCandles)-1]["time"])))
-    print("Yesterday's 20-Day EMA:", round(lst20EMA[len(lst20EMA)-2], 2))
-    print("Yesterday's 100-Day EMA:", round(lst100EMA[len(lst100EMA)-2], 2))
-    
-    yLSD = round(lst100EMA[len(lst100EMA)-2] - lst20EMA[len(lst20EMA)-2], 2)
-    
-    print("Yesterday's Long/Short Delta:", yLSD)
-
-    tLSD = round(lst100EMA[-1] - lst20EMA[-1], 2)
-
-    print("Today's 20-Day EMA:", round(lst20EMA[-1], 2))
-    print("Today's 100-Day EMA:", round(lst100EMA[-1], 2))
-    print("Today's Long/Short Delta:", tLSD)
-
-    if tLSD < yLSD:
-        daysToIntersect = tLSD / (yLSD - tLSD)
-        deltLSD = "Approaching, remaining days to intercept: " + str(round(daysToIntersect, 2))
-    elif tLSD > yLSD:
-        deltLSD = "Separating"
-    elif tLSD == yLSD:
-        deltLSD = "Parallel"
-
-    print("Long/Short Delta Difference:", round(tLSD - yLSD, 2))
-    print("Long/Short Directionality:", deltLSD)
-    
-    if lst20EMA[len(lst20EMA)-2] < lst100EMA[len(lst100EMA)-2] and lst20EMA[-1] >= lst100EMA[-1]:
-        return True
-    
-    else:
-        return False
-
-def runStrategy(latestdate, account, params):
-    """
-    Called in backtest.py. params is a dictionary containing hyperparameters to test from backtest.
-    Account is an object class which stores account balance and trading positions.
-
-
-    Args:
-        latestdate (datetime): the last day to be considered in the strategy (today for live trading, historical for backtesting)
-        account (TestAccount): TestAccount instance containing balance, holdings, etc.
-        params (dict): dictionary of hyperparameters for the strategy
-
-    Returns:
-        account: returns updated account object
-    """
-    data = getDaily()
-    symbols = getSymbols()
-    
-    for symbol in symbols: 
-        lstGoldenCross = setTradingData(data, symbol, latestdate, 100)
-        
-        # Runs a check for Golden Cross conditions and enters a trading position 
-        if checkGoldenCross(lstGoldenCross, latestdate): # TODO: strategy to implement
-            
-            # Calculates the ATR for the symbol and the last 14 trading days to determine the risk / reward ratio for the trade
-            floatATR = indicators.getATR(setTradingData(data, symbol, datetime.datetime.today(), 14))
-
-            price = lstGoldenCross[0]['open'] # TODO: Build in sensitivity to buy price
-            qty = 1000 / price # $1000 USD worth of whatever the symbol is on this day
-                               # TODO: include balance/risk-adjusted qty's? 
-            accounts.buy(symbol, price, qty, latestdate)
-        
-        # TODO: additional strategies (e.g., death cross)
-    
-    return account
-
-print(checkGoldenCross(setTradingData(getDaily(), "SOL-USD", datetime.today(), "ALL"), datetime.today()))
+'''
