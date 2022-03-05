@@ -167,6 +167,7 @@ def runStrategy(lstCandles, account, params):
     """
     
     # Build a subset of data specific to the symbol
+    strSymbol = lstCandles[-1]["symbol"]
     intWindow = 14
 
     # Check ATR to determine spread for trade
@@ -190,7 +191,6 @@ def runStrategy(lstCandles, account, params):
     # Note: using wider than standard RSI bands to drive higher trading activity for testing
     if indicators.risingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) <= 50:
         
-        print("Buying!")
         # Bullish stop-loss set 1x ATR below, profit target set 2x ATR above the trading price
         floatStopLoss = floatPrice - floatATR
         floatProfitTarget = floatPrice + (floatATR * profitMultiple)
@@ -217,6 +217,12 @@ def runStrategy(lstCandles, account, params):
                         floatProfitTarget,
                         lstCandles[-1]["time"])
     
+    # Update all existing positions, update balance with changed liability on short positions
+    account.update_positions(strSymbol, floatPrice)
+
+    # Close positions based on latest price and stop-loss / profit taking conditions for open positions
+    account.close_positions(strSymbol, floatPrice)
+
     # TODO: write check position logic to exit positions based on stop-loss and profit targets of open positions
     
     return account
@@ -231,7 +237,7 @@ intGoldenCrosses = 0
 #       Since checkCross compares the previous day's averages to today's, the function returns a tuple with both days' data
 #       that can be stored for modeling / visualization purposes later.
 
-lstTest = setTradingData(getDaily(), "BTC-USD", datetime.today(), "ALL")
+lstTest = setTradingData(getDaily(), "ETH-USD", datetime.today(), "ALL")
 lstStart = lstTest[0:15]
 intCounter = 15
 accountAlpha = accounts.TestAccount()
@@ -262,9 +268,8 @@ while intCounter < len(lstTest):
     lstStart.pop(0)
     intCounter += 1
 
-for position in accountAlpha.get_open_positions():
-    print(position)
-    print()
+print("# of trades:", len(accountAlpha.get_open_positions()))
+print("Final balance:", accountAlpha.get_balance())
 
 ###### GRAVEYARD: Deprecated or retired functions #######
 

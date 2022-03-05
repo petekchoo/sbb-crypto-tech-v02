@@ -9,8 +9,8 @@ class TestAccount:
         """
         self.balance = balance
         self.open_positions = [] # list of dicts holding open trading positions by type
-        self.trade_history = [] # container for past trades
-
+        self.max_drawdown = 0
+        self.portfolio_value = 0
 
     def trade(self, type, symbol, price, quantity, stoploss, profittarget, latestdate): 
         """
@@ -41,21 +41,77 @@ class TestAccount:
 
         # Execute trade, decrement balance, and add to open_positions based on trade type
 
-        # Buy scenario
-        if type == "buy": 
-            # TODO: API call placeholder
-            self.balance -= price * quantity
-            self.open_positions.append({"time": latestdate,
-                                        "symbol": symbol,
-                                        "price": price,
-                                        "quantity": quantity,
-                                        "stoploss": stoploss,
-                                        "profittarget": profittarget,
-                                        "status": True})
+        # Decrement balance, append to open positions
+        # TODO: API call placeholder
+        self.balance -= price * quantity
 
-        # Short scenario
+        # If the new balance is lower than the current maximum drawdown, update drawdown to current balance
+        if self.balance < self.max_drawdown:
+            self.max_drawdown = self.balance
 
-    def close(self, symbol, price): 
+        self.open_positions.append({"time": latestdate,
+                                    "symbol": symbol,
+                                    "type": type,
+                                    "init_price": price,
+                                    "current_price": None,
+                                    "quantity": quantity,
+                                    "stoploss": stoploss,
+                                    "profittarget": profittarget,
+                                    "status": True})
+
+    def update_positions(self, symbol, price):
+        '''
+        Called from strategy to update the value of positions for a given symbol and a latest midpoint price
+        For buy positions, no impact to balance
+        For short positions, account balance is increased or decreased since liability changes based on latest price until position close
+        Args:
+            symbol (str): security to update based on latest price
+            price (float): the midpoint of the open / close price of the latest candle
+        '''
+        # Iterate through all open positions for the relevant symbol
+        for position in self.open_positions:
+            if position["symbol"] == symbol:
+
+                # If position is a buy, simply update current_price
+                if position["type"] == "buy":
+                    position["current_price"] = price
+                
+                # If position is a short, check if there is a current_price already:
+                elif position["type"] == "short":
+
+                    # If there is already a current price, check whether it is greater or lower than the new price
+                    if position["current_price"] != None:
+                        
+                        # If the previous current price is greater than the new price, credit the balance the difference * qty
+                        # and update current price
+                        if float(position["current_price"]) > price:
+
+                            self.balance += (float(position["current_price"]) - price) * float(position["quantity"])
+                            position["current_price"] = price
+                        
+                        # If the previous current price is less than the new price, decrement the balance difference * qty
+                        # and update current price
+                        elif float(position["current_price"]) < price:
+
+                            self.balance -= (price - float(position["current_price"])) * float(position["quantity"])
+                            position["current_price"] = price
+
+                    # If there is not already a current price, compare to the original price on the position
+                    elif position["current_price"] == None:
+
+                        # If the original price is greater than the new price, credit the balance...
+                        if float(position["init_price"]) > price:
+
+                            self.balance += (float(position["init_price"]) - price) * float(position["quantity"])
+                            position["current_price"] = price
+                        
+                        # If the original price is less than the new price, decrement the balance...
+                        elif position["init_price"] < price:
+
+                            self.balance -= (price - float(position["init_price"])) * float(position["quantity"])
+                            position["current_price"] = price
+    
+    def close_positions(self, symbol, price): 
         """
         Args: 
             symbol (str): security to execute against
@@ -69,17 +125,17 @@ class TestAccount:
             if position["symbol"] == symbol:
 
                 # Check if the price breaks the position's profit target and if the position is still open
-                if price >= position["profittarget"] and position["status"] == True:
+                if price >= float(position["profittarget"]) and bool(position["status"]) == True:
 
                     # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
-                    self.balance += price * position["quantity"]
+                    self.balance += price * float(position["quantity"])
                     position["status"] = False
                 
                 # Check if the price breaks the position's stop-loss and if the position is still open
-                elif price < position["stoploss"] and position["status"] == True:
+                elif price < float(position["stoploss"]) and bool(position["status"]) == True:
 
                     # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
-                    self.balance += price * position["quantity"]
+                    self.balance += price * float(position["quantity"])
                     position["status"] = False
     
     def get_balance(self):
@@ -88,8 +144,22 @@ class TestAccount:
     def get_open_positions(self):
         return self.open_positions
 
-    def get_trade_history(self):
-        return self.trade_history
+    def get_portfolio_value(self):
+        
+        # Initialize open positions to zero to start
+        self.portfolio_value = 0
+
+        # Iterate through all open (True) buy positions, multiply current price (if available) * qty
+        for position in self.open_positions:
+
+            if position["type"] == "buy" and bool(position["status"]) == True:
+                if position["current_value"] != None:
+                    self.portfolio_value += float(position["current_value"]) * float(position["quantity"])
+                
+                elif position["current_value"] == None:
+                    self.portfolio_value += float(position["init_value"]) * float(position["quantity"])
+        
+        return self.portfolio_value
 
 class Account: 
 
