@@ -189,7 +189,7 @@ def runStrategy(lstCandles, account, params):
 
     # Check for 14-day rising / falling trends plus corresponding RSI support
     # Note: using wider than standard RSI bands to drive higher trading activity for testing
-    if indicators.risingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) <= 50:
+    if indicators.risingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) <= 40:
         
         # Bullish stop-loss set 1x ATR below, profit target set 2x ATR above the trading price
         floatStopLoss = floatPrice - floatATR
@@ -203,7 +203,7 @@ def runStrategy(lstCandles, account, params):
                         floatProfitTarget,
                         lstCandles[-1]["time"])
 
-    elif indicators.fallingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) >= 50:
+    elif indicators.fallingCheck(lstCandles) == True and indicators.getRSI(lstCandles, intWindow) >= 60:
         
         # Bearish stop-loss set 1x ATR above, profit target set 2x ATR below the trading price
         floatStopLoss = floatPrice + floatATR
@@ -229,47 +229,7 @@ def runStrategy(lstCandles, account, params):
 
 ##### LOCAL TESTING FOR STRATEGY FUNCTIONS #####
 
-lstSymbols = getSymbols()
-intGoldenCrosses = 0
-
-# TEST: Iterates through all symbols starting 200 days after the earliest available data (needed to set initial EMA window)
-#       Checks for golden and death cross conditions every day after day 200.
-#       Since checkCross compares the previous day's averages to today's, the function returns a tuple with both days' data
-#       that can be stored for modeling / visualization purposes later.
-
-lstTest = setTradingData(getDaily(), "ETH-USD", datetime.today(), "ALL")
-lstStart = lstTest[0:15]
-intCounter = 15
-accountAlpha = accounts.TestAccount()
-
-while intCounter < len(lstTest):
-
-    ''' Crosses unit testing
-    if checkCross(lstStart)[2]["condition"] == "DEATH CROSS!":
-        print(datetime.fromtimestamp(int(lstStart[-1]["time"])))
-        print(checkCross(lstStart))
-        print()
-    '''
-    
-    ''' Rising / falling + RSI unit testing
-    if indicators.risingCheck(lstStart) == True and indicators.getRSI(lstStart, 7) <= 50:
-        print("Bought on:", datetime.fromtimestamp(int(lstStart[-1]["time"])))
-    
-    elif indicators.fallingCheck(lstStart) == True and indicators.getRSI(lstStart, 14) >= 50:
-        print("Shorted on:", datetime.fromtimestamp(int(lstStart[-1]["time"])))
-    '''
-    
-    # Test account trading function throughout history
-    
-    runStrategy(lstStart, accountAlpha, None)
-
-    # Iteration logic for "moving window"
-    lstStart.append(lstTest[intCounter])
-    lstStart.pop(0)
-    intCounter += 1
-
-print("# of trades:", len(accountAlpha.get_open_positions()))
-print("Final balance:", accountAlpha.get_balance())
+# NOTE: backtesting function has been moved to backtest.py
 
 ###### GRAVEYARD: Deprecated or retired functions #######
 

@@ -68,17 +68,25 @@ def fallingCheck(data):
     Returns:
         bool: if price is falling
     """
+    # Set current high and pullback high to opening high price, and lowest low as opening low price
     currentHigh = float(data[0]["high"])
     pullbackHigh = float(data[0]["high"])
     lowestLow = float(data[0]["low"])
+    
+    # Set falling indicator to True by default
     boolFalling = True
+    
+    # Iterate through candles
     for candle in data:
+        
         # If high is higher than pullbackHigh, return False
         if float(candle["high"]) > pullbackHigh:
             boolFalling = False
+        
         # If high is higher than currentHigh and lower than pullbackHigh set currentHigh to high
         elif float(candle["high"]) > currentHigh and float(candle["high"]) < pullbackHigh:
             currentHigh = float(candle["high"])
+        
         # If low is new lowest, update lowestLow and set pullbackHigh to currentHigh
         elif float(candle["low"]) < lowestLow:
             lowestLow = float(candle["low"])
@@ -86,7 +94,6 @@ def fallingCheck(data):
             currentHigh = float(candle["high"])
     
     return boolFalling
-
 
 def getATR(data):
     """
@@ -104,7 +111,6 @@ def getATR(data):
         returnATR += (float(candle["high"]) - float(candle["low"]))
         intCounter += 1
     return (returnATR / intCounter)
-
 
 def getSMA(data):
     """
@@ -242,7 +248,6 @@ def get328(data):
             else:
                 return "Bearish", False
 
-
 def getEngulfing(oldcandle, newcandle):
     """
     Engulfing Formation: another reversal indicator
@@ -275,7 +280,6 @@ def getEngulfing(oldcandle, newcandle):
     # If both candles are bearish or bullish, not an engulfing scenario
     else:
         return "Non-Engulfing"
-
 
 def getAboveBelow(oldcandle, newcandle):
     """

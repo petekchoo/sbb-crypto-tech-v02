@@ -3,6 +3,51 @@ from datetime import datetime
 from accounts import TestAccount
 import strategy
 
+####################################
+### Basic Historical Backtesting ###
+####################################
+
+# Basic backtesting function - creates a TestAccount object and calls the strategy function on it daily through all historical data
+# across all currencies from the getSymbols function
+
+lstSymbols = strategy.getSymbols()
+accountAlpha = TestAccount()
+
+for symbol in lstSymbols:
+
+    lstTest = strategy.setTradingData(strategy.getDaily(), symbol["symbol"], datetime.today(), "ALL")
+    lstStart = lstTest[0:15]
+    intCounter = 15
+    
+    while intCounter < len(lstTest):
+
+    # Test account trading function throughout history
+        
+        strategy.runStrategy(lstStart, accountAlpha, None)
+
+        # Iteration logic for "moving window"
+        lstStart.append(lstTest[intCounter])
+        lstStart.pop(0)
+        intCounter += 1
+
+print()
+print("# of positions:", len(accountAlpha.get_open_positions()))
+print("Final balance:", accountAlpha.get_balance())
+print()
+
+for position in accountAlpha.get_open_positions():
+
+    print(position["symbol"])
+    print(position["type"])
+    print(datetime.fromtimestamp(int(position["time"])))
+
+    if position["type"] == "buy":
+        print("Position value at close:", (float(position["close_price"])-float(position["init_price"])) * float(position["quantity"]))
+    
+    elif position["type"] == "short":
+        print("Position value at close:", (float(position["init_price"])-float(position["close_price"])) * float(position["quantity"]))
+    
+    print()
 
 ##############################
 ### Define scenarios here ####
@@ -105,6 +150,7 @@ scenarios.append(scenario)
 ### Hyperparameter tuning ####
 ##############################
 
+'''TEMPORARILY DISABLING UNTIL BASIC BACKTESTING IS FUNCTIONAL
 # Hyperparameter Tuning functions
 
 def getSize(paramGrid):
@@ -192,6 +238,7 @@ for i in range(getSize(paramGrid)):
         bestParams = currParams
 
 print('Best Params:', bestParams)
+'''
 
 ### RUN THIS SECTION AFTER BEST PARAMS HAS BEEN CONFIGURED ###
 

@@ -43,9 +43,15 @@ class TestAccount:
 
         # Decrement balance, append to open positions
         # TODO: API call placeholder
-        self.balance -= price * quantity
+        
+        # Check if buy or short - if buy, decrement balance.
+        # If taking a short position, do not decrement balance (liabilities will be tracked via update, final positions via close)
+        if type == "buy":
+            self.balance -= price * quantity
 
         # If the new balance is lower than the current maximum drawdown, update drawdown to current balance
+        # NOTE: for backtesting purposes, balances will be allowed to trade below zero...
+        #   for live testing, a balance check with a deposit, credit, or trade rejection behavior
         if self.balance < self.max_drawdown:
             self.max_drawdown = self.balance
 
@@ -53,7 +59,8 @@ class TestAccount:
                                     "symbol": symbol,
                                     "type": type,
                                     "init_price": price,
-                                    "current_price": None,
+                                    "current_price": price,
+                                    "close_price": None,
                                     "quantity": quantity,
                                     "stoploss": stoploss,
                                     "profittarget": profittarget,
@@ -79,37 +86,19 @@ class TestAccount:
                 # If position is a short, check if there is a current_price already:
                 elif position["type"] == "short":
 
-                    # If there is already a current price, check whether it is greater or lower than the new price
-                    if position["current_price"] != None:
-                        
-                        # If the previous current price is greater than the new price, credit the balance the difference * qty
-                        # and update current price
-                        if float(position["current_price"]) > price:
+                    # If the previous current price is greater than the new price, credit the balance the difference * qty
+                    # and update current price
+                    if float(position["current_price"]) > price:
 
-                            self.balance += (float(position["current_price"]) - price) * float(position["quantity"])
-                            position["current_price"] = price
-                        
-                        # If the previous current price is less than the new price, decrement the balance difference * qty
-                        # and update current price
-                        elif float(position["current_price"]) < price:
+                        self.balance += (float(position["current_price"]) - price) * float(position["quantity"])
+                        position["current_price"] = price
+                    
+                    # If the previous current price is less than the new price, decrement the balance difference * qty
+                    # and update current price
+                    elif float(position["current_price"]) < price:
 
-                            self.balance -= (price - float(position["current_price"])) * float(position["quantity"])
-                            position["current_price"] = price
-
-                    # If there is not already a current price, compare to the original price on the position
-                    elif position["current_price"] == None:
-
-                        # If the original price is greater than the new price, credit the balance...
-                        if float(position["init_price"]) > price:
-
-                            self.balance += (float(position["init_price"]) - price) * float(position["quantity"])
-                            position["current_price"] = price
-                        
-                        # If the original price is less than the new price, decrement the balance...
-                        elif position["init_price"] < price:
-
-                            self.balance -= (price - float(position["init_price"])) * float(position["quantity"])
-                            position["current_price"] = price
+                        self.balance -= (price - float(position["current_price"])) * float(position["quantity"])
+                        position["current_price"] = price
     
     def close_positions(self, symbol, price): 
         """
@@ -122,21 +111,49 @@ class TestAccount:
         """
         # Iterate through all open positions for the relevant symbol
         for position in self.open_positions:
+            
+            # Check for positions that match the given symbol
             if position["symbol"] == symbol:
-
-                # Check if the price breaks the position's profit target and if the position is still open
-                if price >= float(position["profittarget"]) and bool(position["status"]) == True:
-
-                    # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
-                    self.balance += price * float(position["quantity"])
-                    position["status"] = False
                 
-                # Check if the price breaks the position's stop-loss and if the position is still open
-                elif price < float(position["stoploss"]) and bool(position["status"]) == True:
+                # Branch for buy scenarios
+                if position["type"] == "buy":
 
-                    # If so, credit the balance by the price multiplied by the position's quantity and set the status to False
-                    self.balance += price * float(position["quantity"])
-                    position["status"] = False
+                    # Check if the price breaks the position's profit target and if the position is still open
+                    if price >= float(position["profittarget"]) and bool(position["status"]) == True:
+
+                        # If so, credit the balance by the price multiplied by the position's quantity,
+                        # record the closing price of the position, and set the status to False
+                        self.balance += price * float(position["quantity"])
+                        position["close_price"] = price
+                        position["status"] = False
+                    
+                    # Check if the price breaks the position's stop-loss and if the position is still open
+                    elif price < float(position["stoploss"]) and bool(position["status"]) == True:
+
+                        # If so, credit the balance by the price multiplied by the position's quantity,
+                        # record the closing price of the psoition, and set the status to False
+                        self.balance += price * float(position["quantity"])
+                        position["close_price"] = price
+                        position["status"] = False
+                
+                # Branch for short scenarios
+                elif position["type"] == "short":
+
+                    # Check if the price breaks the position's profit target and if the position is still open
+                    if price <= float(position["profittarget"]) and bool(position["status"]) == True:
+
+                        # If so, liability would have already been posted during the update function, 
+                        # set close price to current price and close the position
+                        position["close_price"] = price
+                        position["status"] = False
+                    
+                    # Check if the price breaks the position's stop-loss and if the position is still open
+                    elif price > float(position["stoploss"]) and bool(position["status"]) == True:
+
+                        # If so, liability would have already been posted during the update function, 
+                        # set close price to current price and close the position 
+                        position["close_price"] = price
+                        position["status"] = False
     
     def get_balance(self):
         return self.balance
