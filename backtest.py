@@ -1,7 +1,8 @@
+from cgi import test
 import pandas as pd, numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 from accounts import TestAccount
-import strategy
+import execution
 
 ####################################
 ### Basic Historical Backtesting ###
@@ -10,44 +11,94 @@ import strategy
 # Basic backtesting function - creates a TestAccount object and calls the strategy function on it daily through all historical data
 # across all currencies from the getSymbols function
 
-lstSymbols = strategy.getSymbols()
-accountAlpha = TestAccount()
+def runBasicBacktest(account, symbols, params):
+    '''
+    Basic backtesting function that takes an account, a set of symbols, and date / window params to execute strategies
+    Iterates through days of trade data until Trade End is hit
 
-for symbol in lstSymbols:
+    Args:
+        account (TestAccount): account object to manage trade accounting
+        symbols (lst): list of symbols to take into consideration, can be initialized to getSymbols() for all
+        params (dict): set of dates and windows to be used for trading date scenarios and generating indicators
 
-    lstTest = strategy.setTradingData(strategy.getDaily(), symbol["symbol"], datetime.today(), "ALL")
-    lstStart = lstTest[0:15]
-    intCounter = 15
-    
-    while intCounter < len(lstTest):
+    Returns:
+        N/A - updates TestAccount object
+    '''
+    storeDate = params["Current Date"]
 
-    # Test account trading function throughout history
+    for symbol in symbols:
         
-        strategy.runStrategy(lstStart, accountAlpha, None)
+        while params["Current Date"] < params["Trade End"]:
 
-        # Iteration logic for "moving window"
-        lstStart.append(lstTest[intCounter])
-        lstStart.pop(0)
-        intCounter += 1
+            lstCandles = execution.setTradingData(execution.getDaily(),
+                                                symbol,
+                                                params["Current Date"],
+                                                params["Candles"])
+            
+            execution.runStrategy(lstCandles, account, params)
+            params["Current Date"] = params["Current Date"] + timedelta(days = 1)
+        
+        params["Current Date"] = storeDate
 
-print()
-print("# of positions:", len(accountAlpha.get_open_positions()))
-print("Final balance:", accountAlpha.get_balance())
-print()
+def getValidSymbols(params):
+    '''
+    Function to test which symbols in symbols.csv have enough data history for a given set of params
 
-for position in accountAlpha.get_open_positions():
-
-    print(position["symbol"])
-    print(position["type"])
-    print(datetime.fromtimestamp(int(position["time"])))
-
-    if position["type"] == "buy":
-        print("Position value at close:", (float(position["close_price"])-float(position["init_price"])) * float(position["quantity"]))
+    Args:
+        listsymbols (lst of dicts): sourced from symbols.csv
+        params (dict): set of dates and windows for a given backtesting strategy
     
-    elif position["type"] == "short":
-        print("Position value at close:", (float(position["init_price"])-float(position["close_price"])) * float(position["quantity"]))
+    Returns:
+        validSymbols (lst): list of symbols that have sufficient data for a test to be executed
+    '''
     
-    print()
+    # Initialize a list with all candles data available per get-data and all symbols in list
+    lstCandles = execution.getDaily()
+    lstSymbols = execution.getSymbols()
+    
+    # Set a variable for the oldest date per the params 
+    dateOldestDate = params["Current Date"] - timedelta(days = int(params["Candles"]))
+
+    # Set a list to collect the symbols whose earliest data meets the params conditions
+    lstValidSymbols = []
+
+    # Iterate through all symbols in symbols.csv
+    for symbol in lstSymbols:
+
+        # Initialize a variable with today's date, to be updated with the oldest record for the symbol
+        dateSymbolOldest = datetime.today()
+
+        # Iterate through all candle data
+        for candle in lstCandles:
+
+            # Check for match with given symbol from symbols.csv
+            if candle["symbol"] == symbol["symbol"]:
+
+                # Check to see if the candle's date is older than dateOldest, update if so
+                if datetime.fromtimestamp(int(candle["time"])) < dateSymbolOldest:
+                    dateSymbolOldest = datetime.fromtimestamp(int(candle["time"]))
+            
+        # Check to see if the dateSymbolOldest is older than the param's earliest time period
+        if dateSymbolOldest < dateOldestDate:
+            lstValidSymbols.append(symbol["symbol"])
+    
+    return lstValidSymbols
+
+'''
+    for position in accountAlpha.get_open_positions():
+
+        print(position["symbol"])
+        print(position["type"])
+        print(datetime.fromtimestamp(int(position["time"])))
+
+        if position["type"] == "buy":
+            print("Position value at close:", (float(position["close_price"])-float(position["init_price"])) * float(position["quantity"]))
+        
+        elif position["type"] == "short":
+            print("Position value at close:", (float(position["init_price"])-float(position["close_price"])) * float(position["quantity"]))
+        
+        print()
+'''
 
 ##############################
 ### Define scenarios here ####
@@ -58,40 +109,40 @@ scenarios = [] # container for all the scenarios defined below
 # Last month of data
 scenario = {
     'name': 'recent 30 days',
-    'start': datetime(2022, 1, 21),
-    'end': datetime(2022, 2, 20)
+    'start': datetime(2022, 1, 21, 23, 59, 59),
+    'end': datetime(2022, 2, 20, 23, 59, 59)
 }
 scenarios.append(scenario)
 
 # Bitcoin cash fork: June 30 2017 - August 31 2017
 scenario = {
     'name': 'bitcoin cash hard fork',
-    'start': datetime(2017, 6, 30),
-    'end': datetime(2017, 8, 31)
+    'start': datetime(2017, 6, 30, 23, 59, 59),
+    'end': datetime(2017, 8, 31, 23, 59, 59)
 }
 scenarios.append(scenario)
 
 # China regulation: August 10, 2017 - September 20, 2017
 scenario = {
     'name': 'china 2017 regulation',
-    'start': datetime(2017, 8, 10),
-    'end': datetime(2017, 9, 20)
+    'start': datetime(2017, 8, 10, 23, 59, 59),
+    'end': datetime(2017, 9, 20, 23, 59, 59)
 }
 scenarios.append(scenario)
 
 # Bitcoin crash: December 2017
 scenario = {
     'name': 'bitcoin december 2017 crash',
-    'start': datetime(2017, 12, 1),
-    'end': datetime(2017, 12, 31)
+    'start': datetime(2017, 12, 1, 23, 59, 59),
+    'end': datetime(2017, 12, 31, 23, 59, 59)
 }
 scenarios.append(scenario)
 
 # Ethereum decline: January 2018 - April 2018
 scenario = {
     'name': 'bitcoin cash hard fork',
-    'start': datetime(2018, 1, 1),
-    'end': datetime(2018, 4, 30)
+    'start': datetime(2018, 1, 1, 23, 59, 59),
+    'end': datetime(2018, 4, 30, 23, 59, 59)
 }
 scenarios.append(scenario)
 
@@ -145,6 +196,36 @@ scenario = {
 }
 scenarios.append(scenario)
 
+#### SCENARIO BASED TESTING
+
+testParams = {"Trade Start": datetime(2017, 12, 1, 23, 59, 59),
+                "Current Date": datetime(2017, 12, 1, 23, 59, 59),
+                "Trade End": datetime(2017, 12, 31, 23, 59, 59),
+                "Candles": 60,
+                "Trend": 7,
+                "Pattern": 14,
+                "ATR": 14,
+                "Short EMA": 20,
+                "Long EMA": 50,
+                "RSI": 14}
+
+for scenarioX in scenarios:
+
+    accountAlpha = TestAccount()
+    
+    testParams["Trade Start"] = scenarioX["start"]
+    testParams["Current Date"] = testParams["Trade Start"]
+    testParams["Trade End"] = scenarioX["end"]
+
+    testSymbols = getValidSymbols(testParams)
+
+    runBasicBacktest(accountAlpha, testSymbols, testParams)
+    
+    print(scenarioX["name"])
+    print("Total Positions:", len(accountAlpha.open_positions))
+    print("Final Account Balance:", accountAlpha.balance)
+    print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
+    print()
 
 ##############################
 ### Hyperparameter tuning ####

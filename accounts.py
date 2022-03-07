@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 class TestAccount: 
 
@@ -8,11 +9,12 @@ class TestAccount:
         and $5000 available cash to spend, unless a custom balance is provided.  
         """
         self.balance = balance
-        self.open_positions = [] # list of dicts holding open trading positions by type
-        self.max_drawdown = 0
+        self.trade_value = balance / 100 # Starting trade values are 1% of account value
+        self.open_positions = [] # List of dicts holding open trading positions by type
+        self.max_drawdown = balance # Lowest value reached either during opening or updating a position
         self.portfolio_value = 0
 
-    def trade(self, type, symbol, price, quantity, stoploss, profittarget, latestdate): 
+    def open_position(self, type, symbol, price, quantity, stoploss, profittarget, latestdate): 
         """
         Args: 
             type (str): buy or short
@@ -55,7 +57,10 @@ class TestAccount:
         if self.balance < self.max_drawdown:
             self.max_drawdown = self.balance
 
-        self.open_positions.append({"time": latestdate,
+        # Add the newest position to the open positions of the TestAccount object.
+        # Note that the effective date of the position is technically the following day, as are any updates,
+        # since trade decisions are made after the close of the 'current day' in the trading strategy
+        self.open_positions.append({"time": datetime.fromtimestamp(int(latestdate)) + timedelta(days = 1),
                                     "symbol": symbol,
                                     "type": type,
                                     "init_price": price,
@@ -68,7 +73,7 @@ class TestAccount:
 
     def update_positions(self, symbol, price):
         '''
-        Called from strategy to update the value of positions for a given symbol and a latest midpoint price
+        Called from strategy to update the value of positions for a given symboland a latest midpoint price
         For buy positions, no impact to balance
         For short positions, account balance is increased or decreased since liability changes based on latest price until position close
         Args:
@@ -83,7 +88,7 @@ class TestAccount:
                 if position["type"] == "buy":
                     position["current_price"] = price
                 
-                # If position is a short, check if there is a current_price already:
+                # If position is a short, determine the new account value relative to the current price:
                 elif position["type"] == "short":
 
                     # If the previous current price is greater than the new price, credit the balance the difference * qty
@@ -99,6 +104,10 @@ class TestAccount:
 
                         self.balance -= (price - float(position["current_price"])) * float(position["quantity"])
                         position["current_price"] = price
+                        
+                        # If a new max drawdown has occurred, update that with the current balance
+                        if self.balance < self.max_drawdown:
+                            self.max_drawdown = self.balance
     
     def close_positions(self, symbol, price): 
         """
