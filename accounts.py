@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 class TestAccount: 
 
-    def __init__(self, balance=5000):
+    def __init__(self, balance, profit, stoploss):
         """
         Holder for account variables. Initializes with an empty porfolio 
         and $5000 available cash to spend, unless a custom balance is provided.  
@@ -13,6 +13,8 @@ class TestAccount:
         self.open_positions = [] # List of dicts holding open trading positions by type
         self.max_drawdown = balance # Lowest value reached either during opening or updating a position
         self.portfolio_value = 0
+        self.profit_multiple = profit
+        self.stop_loss = stoploss
 
     def open_position(self, type, symbol, price, quantity, stoploss, profittarget, latestdate): 
         """
@@ -28,22 +30,6 @@ class TestAccount:
         Returns:
             None: updates TestAccount attributes
         """
-        
-        ''' TEMP: removing affordability check and allowing balance to go below zero
-        balance_required = price * qty
-        if balance_required > self.balance: 
-            print('Buy error: Not enough cash to execute trade for {0} {1} at {2} (total \
-                balance required: {3}). Porfolio only has {4} available cash to spend.'.format(qty, 
-                symbol, price, balance_required, self.balance))
-        else: # execute trade
-            self.portfolio[symbol] += qty
-            self.balance -= balance_required
-            self.trade_history.append([time, 'buy', symbol, price, qty])
-        '''
-
-        # Execute trade, decrement balance, and add to open_positions based on trade type
-
-        # Decrement balance, append to open positions
         # TODO: API call placeholder
         
         # Check if buy or short - if buy, decrement balance.
@@ -60,18 +46,19 @@ class TestAccount:
         # Add the newest position to the open positions of the TestAccount object.
         # Note that the effective date of the position is technically the following day, as are any updates,
         # since trade decisions are made after the close of the 'current day' in the trading strategy
-        self.open_positions.append({"time": datetime.fromtimestamp(int(latestdate)) + timedelta(days = 1),
+        self.open_positions.append({"time": latestdate,
                                     "symbol": symbol,
                                     "type": type,
                                     "init_price": price,
                                     "current_price": price,
                                     "close_price": None,
+                                    "close_time": None,
                                     "quantity": quantity,
                                     "stoploss": stoploss,
                                     "profittarget": profittarget,
                                     "status": True})
 
-    def update_positions(self, symbol, price):
+    def update_positions(self, symbol, price, latestdate):
         '''
         Called from strategy to update the value of positions for a given symboland a latest midpoint price
         For buy positions, no impact to balance
@@ -82,7 +69,7 @@ class TestAccount:
         '''
         # Iterate through all open positions for the relevant symbol
         for position in self.open_positions:
-            if position["symbol"] == symbol:
+            if position["symbol"] == symbol and position["time"] < latestdate:
 
                 # If position is a buy, simply update current_price
                 if position["type"] == "buy":
@@ -109,7 +96,7 @@ class TestAccount:
                         if self.balance < self.max_drawdown:
                             self.max_drawdown = self.balance
     
-    def close_positions(self, symbol, price): 
+    def close_positions(self, symbol, price, latestdate): 
         """
         Args: 
             symbol (str): security to execute against
@@ -122,7 +109,7 @@ class TestAccount:
         for position in self.open_positions:
             
             # Check for positions that match the given symbol
-            if position["symbol"] == symbol:
+            if position["symbol"] == symbol and position["time"] < latestdate:
                 
                 # Branch for buy scenarios
                 if position["type"] == "buy":
@@ -131,18 +118,20 @@ class TestAccount:
                     if price >= float(position["profittarget"]) and bool(position["status"]) == True:
 
                         # If so, credit the balance by the price multiplied by the position's quantity,
-                        # record the closing price of the position, and set the status to False
+                        # record the closing price and date of the position, and set the status to False
                         self.balance += price * float(position["quantity"])
                         position["close_price"] = price
+                        position["close_time"] = latestdate
                         position["status"] = False
                     
                     # Check if the price breaks the position's stop-loss and if the position is still open
                     elif price < float(position["stoploss"]) and bool(position["status"]) == True:
 
                         # If so, credit the balance by the price multiplied by the position's quantity,
-                        # record the closing price of the psoition, and set the status to False
+                        # record the closing price of the position, and set the status to False
                         self.balance += price * float(position["quantity"])
                         position["close_price"] = price
+                        position["close_time"] = latestdate
                         position["status"] = False
                 
                 # Branch for short scenarios
@@ -154,6 +143,7 @@ class TestAccount:
                         # If so, liability would have already been posted during the update function, 
                         # set close price to current price and close the position
                         position["close_price"] = price
+                        position["close_time"] = latestdate
                         position["status"] = False
                     
                     # Check if the price breaks the position's stop-loss and if the position is still open
@@ -162,6 +152,7 @@ class TestAccount:
                         # If so, liability would have already been posted during the update function, 
                         # set close price to current price and close the position 
                         position["close_price"] = price
+                        position["close_time"] = latestdate
                         position["status"] = False
     
     def get_balance(self):

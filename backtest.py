@@ -24,13 +24,22 @@ def runBasicBacktest(account, symbols, params):
     Returns:
         N/A - updates TestAccount object
     '''
+    
+    lstData = execution.getDaily()
     storeDate = params["Current Date"]
 
     for symbol in symbols:
         
+        # Initialize list of candles based on symbol once per symbol
+        lstCandlesSymbol = execution.setTradingData(lstData,
+                                                symbol,
+                                                params["Current Date"],
+                                                "ALL")
+        
         while params["Current Date"] < params["Trade End"]:
 
-            lstCandles = execution.setTradingData(execution.getDaily(),
+            # Reinitialize subset list per day to simulate moving window
+            lstCandles = execution.setTradingData(lstCandlesSymbol,
                                                 symbol,
                                                 params["Current Date"],
                                                 params["Candles"])
@@ -198,10 +207,10 @@ scenarios.append(scenario)
 
 #### SCENARIO BASED TESTING
 
-testParams = {"Trade Start": datetime(2017, 12, 1, 23, 59, 59),
-                "Current Date": datetime(2017, 12, 1, 23, 59, 59),
-                "Trade End": datetime(2017, 12, 31, 23, 59, 59),
-                "Candles": 60,
+testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
+                "Current Date": datetime(2020, 3, 6, 23, 59, 59),
+                "Trade End": datetime(2022, 3, 6, 23, 59, 59),
+                "Candles": 110,
                 "Trend": 7,
                 "Pattern": 14,
                 "ATR": 14,
@@ -209,9 +218,41 @@ testParams = {"Trade Start": datetime(2017, 12, 1, 23, 59, 59),
                 "Long EMA": 50,
                 "RSI": 14}
 
+'''
+accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
+testSymbols = getValidSymbols(testParams)
+runBasicBacktest(accountAlpha, testSymbols, testParams)
+
+print()
+print("Total Positions:", len(accountAlpha.open_positions))
+print("Final Account Balance:", accountAlpha.balance)
+print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
+print()
+'''
+
+'''POSITION REVIEW
+for position in accountAlpha.open_positions:
+    print("Position opened on:", position["time"])
+    print("Position closed on:", position["close_time"])
+    print("Symbol:", position["symbol"])
+    print("Order type:", position["type"])
+    print("Open price:", position["init_price"])
+    print("Close price:", position["close_price"])
+    
+    if position["type"] == "buy":
+        print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
+        print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
+    
+    else:
+        print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
+        print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
+    print()
+'''
+
+# TEST ALL SCENARIOS
 for scenarioX in scenarios:
 
-    accountAlpha = TestAccount()
+    accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
     
     testParams["Trade Start"] = scenarioX["start"]
     testParams["Current Date"] = testParams["Trade Start"]
@@ -224,8 +265,10 @@ for scenarioX in scenarios:
     print(scenarioX["name"])
     print("Total Positions:", len(accountAlpha.open_positions))
     print("Final Account Balance:", accountAlpha.balance)
+    print("Profit / Loss:", accountAlpha.balance - 5000)
     print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
     print()
+
 
 ##############################
 ### Hyperparameter tuning ####

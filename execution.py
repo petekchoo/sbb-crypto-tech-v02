@@ -71,15 +71,17 @@ def runStrategy(candles, account, params):
     # (params are iterated by scenario and hyperparameterization)
 
     strSymbol = candles[-1]["symbol"]
+
+    # Set the effective date for any open, update, or closing position
+    # Note - since we are reading the closed candle for the latest day, effective trades will
+    # always fall one day in the future
+    dateEffective = datetime.fromtimestamp(int(candles[-1]["time"])) + timedelta(days = 1)
     
     # Next, initialize lists of data to generate indicators / strategy outputs based on the window params
     lstTrend = candles[len(candles)-int(params["Trend"])-1:len(candles) - 1]
     lstATR = candles[len(candles)-int(params["ATR"])-1:len(candles) - 1]
     lstRSI = candles[len(candles)-int(params["RSI"])-1:len(candles) - 1]
 
-    # Check ATR to determine spread for trade
-    floatATR = indicators.getATR(lstATR)
-    
     # Set a trading price and quantity based on the midpoint of the current day's candle
     # Note this is based on 
     if float(candles[-1]["open"]) <= float(candles[-1]["close"]): # Price closed above open
@@ -90,10 +92,18 @@ def runStrategy(candles, account, params):
     tradeAmount = account.trade_value # Trade in increments based on account definition
     floatQuantity = tradeAmount / floatPrice # Quantity for purchase is based on the trade amount from the account
     
+    # Check ATR to determine spread for position stop-loss and profit target
+    floatATR = indicators.getATR(lstATR)
+    
     # Set stop-loss and profit target based on ATR and targeted profit multiple
-    profitMultiple = 2.0
-    floatStopLoss = floatPrice - floatATR
-    floatProfitTarget = floatPrice + (floatATR * profitMultiple)
+    profitMultiple = account.profit_multiple
+    stopLossMultiple = account.stop_loss
+    
+    floatBuyStopLoss = floatPrice - (floatATR * stopLossMultiple)
+    floatShortStopLoss = floatPrice + (floatATR* stopLossMultiple)
+    
+    floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
+    floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
     # Check for golden or death cross and buy or short accordingly
     if strategies.checkCross(candles,
@@ -104,9 +114,9 @@ def runStrategy(candles, account, params):
                         strSymbol,
                         floatPrice,
                         floatQuantity,
-                        floatStopLoss,
-                        floatProfitTarget,
-                        candles[-1]["time"])
+                        floatBuyStopLoss,
+                        floatBuyProfitTarget,
+                        dateEffective)
 
     if strategies.checkCross(candles,
                                 int(params["Short EMA"]),
@@ -116,37 +126,37 @@ def runStrategy(candles, account, params):
                         strSymbol,
                         floatPrice,
                         floatQuantity,
-                        floatStopLoss,
-                        floatProfitTarget,
-                        candles[-1]["time"])
+                        floatShortStopLoss,
+                        floatShortProfitTarget,
+                        dateEffective)
 
     # Check for 14-day rising / falling trends plus corresponding RSI support
     # Note: using wider than standard RSI bands to drive higher trading activity for testing
-    if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 50:
+    if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
         
         account.open_position("buy",
                         strSymbol,
                         floatPrice,
                         floatQuantity,
-                        floatStopLoss,
-                        floatProfitTarget,
-                        candles[-1]["time"])
+                        floatBuyStopLoss,
+                        floatBuyProfitTarget,
+                        dateEffective)
 
-    elif indicators.fallingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) >= 50:
+    elif indicators.fallingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) >= 70:
 
         account.open_position("short",
                         strSymbol,
                         floatPrice,
                         floatQuantity,
-                        floatStopLoss,
-                        floatProfitTarget,
-                        candles[-1]["time"])
+                        floatShortStopLoss,
+                        floatShortProfitTarget,
+                        dateEffective)
     
     # Update price all existing positions, update balance with changed liability on short positions
-    account.update_positions(strSymbol, floatPrice)
+    account.update_positions(strSymbol, floatPrice, dateEffective)
 
     # Close positions based on latest price and stop-loss / profit taking conditions for open positions
-    account.close_positions(strSymbol, floatPrice)
+    account.close_positions(strSymbol, floatPrice, dateEffective)
 
     return account
 
