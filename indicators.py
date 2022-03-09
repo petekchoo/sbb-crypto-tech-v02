@@ -220,6 +220,74 @@ def getRSI(data, timeperiod):
 
     return RSI
 
+# Trending indicator 
+def getSuperTrend(candles, timeperiod=10, multiplier=3):
+    '''
+    Used to determine price trending direction
+
+    Args:
+        candles (lst of dicts: set of candle data
+        timeperiod (int): window to examine trend data - 10 candles by default
+        multiplier (int): magnitude factor for supertrend, 3 by default
+
+    Returns:
+        lstSuperTrend (lst): supertrend data for the given set of candles
+    '''
+
+    lstStart = candles[0:timeperiod + 1]
+    intCounter = timeperiod + 1
+
+    prevFinalUpper = 99999999
+    prevFinalLower = -99999999
+    prevSuperTrend = 0
+    superTrend = prevFinalUpper
+
+    lstSuperTrend = []
+
+    # Iterate through the full set of candles, calculating supertrend along the way
+    while intCounter < len(candles):
+
+        floatATR = getATR(lstStart)
+        
+        basicUpper = ((float(lstStart[-1]["high"]) + float(lstStart[-1]["low"])) / 2) + (multiplier * floatATR)
+        basicLower = ((float(lstStart[-1]["high"]) + float(lstStart[-1]["low"])) / 2) - (multiplier * floatATR)
+
+        # Establish basic current upper band
+        if basicUpper < prevFinalUpper or float(lstStart[len(lstStart) - 2]["close"]) > prevFinalUpper:
+            finalUpper = basicUpper
+        else:
+            finalUpper = prevFinalUpper
+        
+        # Establish basic current lower band
+        if basicLower > prevFinalLower or float(lstStart[len(lstStart) - 2]["close"]) < prevFinalLower:
+            finalLower = basicLower
+        else:
+            finalLower = prevFinalLower
+        
+        # Compare to previous SuperTrend line value and current closing price to 
+        if prevSuperTrend == prevFinalUpper and float(lstStart[-1]["close"]) < finalUpper:
+            superTrend = finalUpper
+        
+        elif prevSuperTrend == prevFinalUpper and float(lstStart[-1]["close"]) > finalUpper:
+            superTrend = finalLower
+        
+        elif prevSuperTrend == prevFinalLower and float(lstStart[-1]["close"]) > finalLower:
+            superTrend = finalLower
+        
+        elif prevSuperTrend == prevFinalLower and float(lstStart[-1]["close"]) < finalLower:
+            superTrend = finalUpper
+        
+        lstSuperTrend.append(superTrend)
+        
+        prevFinalUpper = finalUpper
+        prevFinalLower = finalLower
+        prevSuperTrend = superTrend
+
+        lstStart.append(candles[intCounter])
+        lstStart.pop(0)
+        intCounter += 1
+
+    return lstSuperTrend
 
 # Candlestick patterns: 32.8%, engulfing, etc,
 

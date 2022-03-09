@@ -104,3 +104,4 @@ def checkCross(candles, shortwindow, longwindow):
 
         return lstDictData
 
+

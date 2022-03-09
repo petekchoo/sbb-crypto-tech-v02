@@ -207,8 +207,8 @@ scenarios.append(scenario)
 
 #### SCENARIO BASED TESTING
 
-testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
-                "Current Date": datetime(2020, 3, 6, 23, 59, 59),
+testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
+                "Current Date": datetime(2021, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
                 "Candles": 110,
                 "Trend": 7,
@@ -218,7 +218,7 @@ testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
                 "Long EMA": 50,
                 "RSI": 14}
 
-'''
+
 accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
 testSymbols = getValidSymbols(testParams)
 runBasicBacktest(accountAlpha, testSymbols, testParams)
@@ -228,7 +228,7 @@ print("Total Positions:", len(accountAlpha.open_positions))
 print("Final Account Balance:", accountAlpha.balance)
 print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
 print()
-'''
+
 
 '''POSITION REVIEW
 for position in accountAlpha.open_positions:
@@ -248,7 +248,7 @@ for position in accountAlpha.open_positions:
         print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
     print()
 '''
-
+'''
 # TEST ALL SCENARIOS
 for scenarioX in scenarios:
 
@@ -268,7 +268,7 @@ for scenarioX in scenarios:
     print("Profit / Loss:", accountAlpha.balance - 5000)
     print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
     print()
-
+'''
 
 ##############################
 ### Hyperparameter tuning ####

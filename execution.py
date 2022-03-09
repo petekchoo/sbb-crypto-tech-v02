@@ -105,6 +105,7 @@ def runStrategy(candles, account, params):
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
+    '''
     # Check for golden or death cross and buy or short accordingly
     if strategies.checkCross(candles,
                                 int(params["Short EMA"]),
@@ -151,7 +152,33 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-    
+    '''
+    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+        indicators.getSuperTrend(candles)[-1] < float(candles[-1]["close"]) and \
+        float(candles[-1]["low"]) <= indicators.getEMA(candles, params["Short EMA"]):
+
+        account.open_position("buy",
+                        strSymbol,
+                        floatPrice,
+                        floatQuantity,
+                        floatBuyStopLoss,
+                        floatBuyProfitTarget,
+                        dateEffective)
+
+    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+        indicators.getSuperTrend(candles)[-1] > float(candles[-1]["close"]) and \
+        float(candles[-1]["high"]) >= indicators.getEMA(candles, params["Short EMA"]):
+
+        account.open_position("short",
+                        strSymbol,
+                        floatPrice,
+                        floatQuantity,
+                        floatBuyStopLoss,
+                        floatBuyProfitTarget,
+                        dateEffective)
+
+
+
     # Update price all existing positions, update balance with changed liability on short positions
     account.update_positions(strSymbol, floatPrice, dateEffective)
 
