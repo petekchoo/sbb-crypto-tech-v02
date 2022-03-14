@@ -2,7 +2,7 @@ from cgi import test
 import pandas as pd, numpy as np
 from datetime import datetime, timedelta
 from accounts import TestAccount
-import execution
+import execution, time
 
 ####################################
 ### Basic Historical Backtesting ###
@@ -210,12 +210,12 @@ scenarios.append(scenario)
 testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
                 "Current Date": datetime(2021, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
-                "Candles": 110,
-                "Trend": 7,
+                "Candles": 210,
+                "Trend": 5,
                 "Pattern": 14,
                 "ATR": 14,
                 "Short EMA": 20,
-                "Long EMA": 50,
+                "Long EMA": 200,
                 "RSI": 14}
 
 
@@ -223,14 +223,45 @@ accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
 testSymbols = getValidSymbols(testParams)
 runBasicBacktest(accountAlpha, testSymbols, testParams)
 
+#  ACCOUNT SUMMARY OUTPUT
 print()
 print("Total Positions:", len(accountAlpha.open_positions))
 print("Final Account Balance:", accountAlpha.balance)
 print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
 print()
 
+#   POSITION SUMMARY BY TYPE
 
-'''POSITION REVIEW
+floatBuyTotal = 0.00
+floatShortTotal = 0.00
+floatOpenBuyTotal = 0.00
+floatOpenShortTotal = 0.00
+
+for position in accountAlpha.open_positions:
+    
+    if position["status"] == False:
+    
+        if position["type"] == "buy":
+            floatBuyTotal += (float(position["close_price"]) - float(position["init_price"])) * float(position["quantity"])
+        
+        elif position["type"] == "short":
+            floatShortTotal += (float(position["init_price"]) - float(position["close_price"])) * float(position["quantity"])
+
+    else:
+        
+        if position["type"] == "buy":
+            floatOpenBuyTotal += (float(position["current_price"]) - float(position["init_price"])) * float(position["quantity"])
+        
+        else:
+            floatOpenShortTotal += (float(position["init_price"]) - float(position["current_price"])) * float(position["quantity"])
+
+print("Closed buy value:", floatBuyTotal)
+print("Closed short value:", floatShortTotal)
+print("Open (unrealized) buy value:", floatOpenBuyTotal)
+print("Open (unrealized) short value:", floatOpenShortTotal)
+print()
+
+''' POSITION REVIEW
 for position in accountAlpha.open_positions:
     print("Position opened on:", position["time"])
     print("Position closed on:", position["close_time"])
@@ -239,15 +270,24 @@ for position in accountAlpha.open_positions:
     print("Open price:", position["init_price"])
     print("Close price:", position["close_price"])
     
-    if position["type"] == "buy":
-        print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
-        print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
+    if position["status"] == False:
+
+        if position["type"] == "buy":
+            print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
+            print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
+        
+        else:
+            print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
+            print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
+        print()
     
     else:
-        print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
-        print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
-    print()
+        print("Open position price:", float(position["current_price"]))
+        print("Open position quantity:", float(position["quantity"]))
+        print("Open position value:", float(position["current_price"]) * float(position["quantity"]))
+        print()
 '''
+
 '''
 # TEST ALL SCENARIOS
 for scenarioX in scenarios:

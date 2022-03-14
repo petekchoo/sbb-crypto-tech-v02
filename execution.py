@@ -105,7 +105,6 @@ def runStrategy(candles, account, params):
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
-    '''
     # Check for golden or death cross and buy or short accordingly
     if strategies.checkCross(candles,
                                 int(params["Short EMA"]),
@@ -131,8 +130,7 @@ def runStrategy(candles, account, params):
                         floatShortProfitTarget,
                         dateEffective)
 
-    # Check for 14-day rising / falling trends plus corresponding RSI support
-    # Note: using wider than standard RSI bands to drive higher trading activity for testing
+    # Check for 7-day rising / falling trends plus corresponding RSI support
     if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
         
         account.open_position("buy",
@@ -152,8 +150,10 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-    '''
-    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+
+    '''SuperTrend + EMA Support
+        # Uses volatility to screen out sideways / consolidation scenarios - high risk, high reward
+    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.25 and \
         indicators.getSuperTrend(candles)[-1] < float(candles[-1]["close"]) and \
         float(candles[-1]["low"]) <= indicators.getEMA(candles, params["Short EMA"]):
 
@@ -165,7 +165,7 @@ def runStrategy(candles, account, params):
                         floatBuyProfitTarget,
                         dateEffective)
 
-    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.25 and \
         indicators.getSuperTrend(candles)[-1] > float(candles[-1]["close"]) and \
         float(candles[-1]["high"]) >= indicators.getEMA(candles, params["Short EMA"]):
 
@@ -176,7 +176,7 @@ def runStrategy(candles, account, params):
                         floatBuyStopLoss,
                         floatBuyProfitTarget,
                         dateEffective)
-
+    '''
 
 
     # Update price all existing positions, update balance with changed liability on short positions
