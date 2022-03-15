@@ -207,8 +207,8 @@ scenarios.append(scenario)
 
 #### SCENARIO BASED TESTING
 
-testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
-                "Current Date": datetime(2021, 3, 6, 23, 59, 59),
+testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
+                "Current Date": datetime(2020, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
                 "Candles": 210,
                 "Trend": 5,
@@ -230,7 +230,7 @@ print("Final Account Balance:", accountAlpha.balance)
 print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
 print()
 
-#   POSITION SUMMARY BY TYPE
+#  POSITION SUMMARY BY TYPE
 
 floatBuyTotal = 0.00
 floatShortTotal = 0.00
@@ -261,29 +261,32 @@ print("Open (unrealized) buy value:", floatOpenBuyTotal)
 print("Open (unrealized) short value:", floatOpenShortTotal)
 print()
 
-''' POSITION REVIEW
+'''# POSITION REVIEW
 for position in accountAlpha.open_positions:
     print("Position opened on:", position["time"])
-    print("Position closed on:", position["close_time"])
     print("Symbol:", position["symbol"])
     print("Order type:", position["type"])
     print("Open price:", position["init_price"])
-    print("Close price:", position["close_price"])
+    print("Current price:", position["current_price"])
     
     if position["status"] == False:
 
         if position["type"] == "buy":
+            print("Close price:", position["close_price"])
+            print("Close date:", position["close_time"])
             print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
             print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
+            print("Position status:", position["status"])
         
         else:
+            print("Close price:", position["close_price"])
+            print("Close date:", position["close_time"])
             print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
             print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
+            print("Position status:", position["status"])
         print()
     
     else:
-        print("Open position price:", float(position["current_price"]))
-        print("Open position quantity:", float(position["quantity"]))
         print("Open position value:", float(position["current_price"]) * float(position["quantity"]))
         print()
 '''

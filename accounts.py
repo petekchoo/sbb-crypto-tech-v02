@@ -69,7 +69,7 @@ class TestAccount:
         '''
         # Iterate through all open positions for the relevant symbol
         for position in self.open_positions:
-            if position["symbol"] == symbol and position["time"] < latestdate:
+            if position["symbol"] == symbol and position["time"] < latestdate and bool(position["status"]) == True:
 
                 # If position is a buy, simply update current_price
                 if position["type"] == "buy":
@@ -80,7 +80,7 @@ class TestAccount:
 
                     # If the previous current price is greater than the new price, credit the balance the difference * qty
                     # and update current price
-                    if float(position["current_price"]) > price:
+                    if float(position["current_price"]) >= price:
 
                         self.balance += (float(position["current_price"]) - price) * float(position["quantity"])
                         position["current_price"] = price
@@ -108,14 +108,14 @@ class TestAccount:
         # Iterate through all open positions for the relevant symbol
         for position in self.open_positions:
             
-            # Check for positions that match the given symbol
-            if position["symbol"] == symbol and position["time"] < latestdate:
+            # Check for positions that match the given symbol and were opened prior to the current effective date and are still open
+            if position["symbol"] == symbol and position["time"] < latestdate and bool(position["status"]) == True:
                 
                 # Branch for buy scenarios
                 if position["type"] == "buy":
 
                     # Check if the price breaks the position's profit target and if the position is still open
-                    if price >= float(position["profittarget"]) and bool(position["status"]) == True:
+                    if price >= float(position["profittarget"]):
 
                         # If so, credit the balance by the price multiplied by the position's quantity,
                         # record the closing price and date of the position, and set the status to False
@@ -125,7 +125,7 @@ class TestAccount:
                         position["status"] = False
                     
                     # Check if the price breaks the position's stop-loss and if the position is still open
-                    elif price < float(position["stoploss"]) and bool(position["status"]) == True:
+                    elif price < float(position["stoploss"]):
 
                         # If so, credit the balance by the price multiplied by the position's quantity,
                         # record the closing price of the position, and set the status to False
@@ -138,7 +138,7 @@ class TestAccount:
                 elif position["type"] == "short":
 
                     # Check if the price breaks the position's profit target and if the position is still open
-                    if price <= float(position["profittarget"]) and bool(position["status"]) == True:
+                    if price <= float(position["profittarget"]):
 
                         # If so, liability would have already been posted during the update function, 
                         # set close price to current price and close the position
@@ -147,7 +147,7 @@ class TestAccount:
                         position["status"] = False
                     
                     # Check if the price breaks the position's stop-loss and if the position is still open
-                    elif price > float(position["stoploss"]) and bool(position["status"]) == True:
+                    elif price > float(position["stoploss"]):
 
                         # If so, liability would have already been posted during the update function, 
                         # set close price to current price and close the position 

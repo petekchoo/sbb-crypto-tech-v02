@@ -83,11 +83,10 @@ def runStrategy(candles, account, params):
     lstRSI = candles[len(candles)-int(params["RSI"])-1:len(candles) - 1]
 
     # Set a trading price and quantity based on the midpoint of the current day's candle
-    # Note this is based on 
     if float(candles[-1]["open"]) <= float(candles[-1]["close"]): # Price closed above open
-        floatPrice = float(candles[-1]["open"]) + ((float(candles[-1]["close"]) - float(candles[-1]["open"])/2))
+        floatPrice = float(candles[-1]["open"]) + (float(candles[-1]["close"]) - float(candles[-1]["open"]) / 2)
     else: # Price closed below open
-        floatPrice = float(candles[-1]["open"]) - ((float(candles[-1]["open"]) - float(candles[-1]["close"])/2))
+        floatPrice = float(candles[-1]["open"]) - (float(candles[-1]["open"]) - float(candles[-1]["close"]) / 2)
 
     tradeAmount = account.trade_value # Trade in increments based on account definition
     floatQuantity = tradeAmount / floatPrice # Quantity for purchase is based on the trade amount from the account
@@ -100,7 +99,7 @@ def runStrategy(candles, account, params):
     stopLossMultiple = account.stop_loss
     
     floatBuyStopLoss = floatPrice - (floatATR * stopLossMultiple)
-    floatShortStopLoss = floatPrice + (floatATR* stopLossMultiple)
+    floatShortStopLoss = floatPrice + (floatATR * stopLossMultiple)
     
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
@@ -129,7 +128,9 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-
+    
+    
+    '''
     # Check for 7-day rising / falling trends plus corresponding RSI support
     if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
         
@@ -150,10 +151,13 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
+    '''
 
-    '''SuperTrend + EMA Support
-        # Uses volatility to screen out sideways / consolidation scenarios - high risk, high reward
-    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.25 and \
+    '''
+    # TERRIBLE STRAT LOL
+    # SuperTrend + EMA Support
+    # Uses volatility to screen out sideways / consolidation scenarios - high risk, high reward
+    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
         indicators.getSuperTrend(candles)[-1] < float(candles[-1]["close"]) and \
         float(candles[-1]["low"]) <= indicators.getEMA(candles, params["Short EMA"]):
 
@@ -165,7 +169,7 @@ def runStrategy(candles, account, params):
                         floatBuyProfitTarget,
                         dateEffective)
 
-    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.25 and \
+    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
         indicators.getSuperTrend(candles)[-1] > float(candles[-1]["close"]) and \
         float(candles[-1]["high"]) >= indicators.getEMA(candles, params["Short EMA"]):
 
@@ -173,11 +177,10 @@ def runStrategy(candles, account, params):
                         strSymbol,
                         floatPrice,
                         floatQuantity,
-                        floatBuyStopLoss,
-                        floatBuyProfitTarget,
+                        floatShortStopLoss,
+                        floatShortProfitTarget,
                         dateEffective)
     '''
-
 
     # Update price all existing positions, update balance with changed liability on short positions
     account.update_positions(strSymbol, floatPrice, dateEffective)
