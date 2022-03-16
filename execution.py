@@ -53,6 +53,31 @@ def setTradingData(data, symbol, latestdate, timeWindow):
     
     return lstReturn
 
+def getWindowScores(params, data):
+    lstScores = []
+    lstEval = data[0:int(params["Pattern"])]
+    intCounter = int(params["Pattern"])
+    boolMatch = False
+
+    while intCounter < len(data):
+        dictCurrent = indicators.scoreMovingWindow(lstEval)
+        
+        for item in lstScores:
+            if dictCurrent["sequence"] == item["sequence"]:
+                item["strength"] += 1
+                boolMatch = True
+
+        if boolMatch == False:
+            lstScores.append(dictCurrent)
+        
+        lstEval.append(data[intCounter])
+        lstEval.pop(0)
+
+        intCounter += 1
+        boolMatch = False
+    
+    return lstScores
+
 def runStrategy(candles, account, params):
     """
     Called in backtest.py. params is a dictionary containing hyperparameters to test from backtest.
@@ -104,6 +129,7 @@ def runStrategy(candles, account, params):
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
+    '''
     # Check for golden or death cross and buy or short accordingly
     if strategies.checkCross(candles,
                                 int(params["Short EMA"]),
@@ -128,7 +154,7 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-    
+    '''
     
     '''
     # Check for 7-day rising / falling trends plus corresponding RSI support
@@ -181,6 +207,9 @@ def runStrategy(candles, account, params):
                         floatShortProfitTarget,
                         dateEffective)
     '''
+
+    # Moving window analysis of normalized patterns
+     
 
     # Update price all existing positions, update balance with changed liability on short positions
     account.update_positions(strSymbol, floatPrice, dateEffective)

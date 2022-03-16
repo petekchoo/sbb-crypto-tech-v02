@@ -1,3 +1,5 @@
+import execution
+
 # Test code for local development, will comment out once strategy.py is set up to pass along basic
 # params
 '''
@@ -289,7 +291,41 @@ def getSuperTrend(candles, timeperiod=10, multiplier=3):
 
     return lstSuperTrend
 
-# Candlestick patterns: 32.8%, engulfing, etc,
+# Function to take a set of candles, normalize the close price patterns of the candles relative
+# to the set's high and low, and return a 'scoring' sequence and trading signal
+def scoreMovingWindow(candles):
+
+    floatHigh = 0.00
+    floatLow = 9999999999999.00
+
+    # Iterate to find highest high and lowest low from the set:
+    for candle in candles:
+        if float(candle["high"]) > floatHigh:
+            floatHigh = float(candle["high"])
+        
+        if float(candle["low"]) < floatLow:
+            floatLow = float(candle["low"])
+
+    floatIndex = (floatHigh - floatLow) / 10
+    returnDict = {"sequence": [], "signal": None, "strength": 1}
+
+    # Generate sequence
+    for candle in candles:
+        intScore = int(round((float(candle["close"]) - floatLow) / floatIndex, 0))
+        returnDict["sequence"].append(intScore)
+
+    if float(returnDict["sequence"][-1]) > float(returnDict["sequence"][-2]):
+        returnDict["signal"] = "buy"
+    
+    elif float(returnDict["sequence"][-1]) < float(returnDict["sequence"][-2]):
+        returnDict["signal"] = "short"
+    
+    else:
+        returnDict["signal"] = False
+    
+    return returnDict
+
+###### Candlestick patterns: 32.8%, engulfing, etc, #####
 
 def get328(data):
     """

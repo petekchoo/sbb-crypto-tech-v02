@@ -2,7 +2,7 @@ from cgi import test
 import pandas as pd, numpy as np
 from datetime import datetime, timedelta
 from accounts import TestAccount
-import execution, time
+import execution, time, indicators
 
 ####################################
 ### Basic Historical Backtesting ###
@@ -92,22 +92,6 @@ def getValidSymbols(params):
             lstValidSymbols.append(symbol["symbol"])
     
     return lstValidSymbols
-
-'''
-    for position in accountAlpha.get_open_positions():
-
-        print(position["symbol"])
-        print(position["type"])
-        print(datetime.fromtimestamp(int(position["time"])))
-
-        if position["type"] == "buy":
-            print("Position value at close:", (float(position["close_price"])-float(position["init_price"])) * float(position["quantity"]))
-        
-        elif position["type"] == "short":
-            print("Position value at close:", (float(position["init_price"])-float(position["close_price"])) * float(position["quantity"]))
-        
-        print()
-'''
 
 ##############################
 ### Define scenarios here ####
@@ -212,13 +196,26 @@ testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
                 "Candles": 210,
                 "Trend": 5,
-                "Pattern": 14,
+                "Pattern": 5,
                 "ATR": 14,
                 "Short EMA": 20,
                 "Long EMA": 200,
                 "RSI": 14}
 
+lstData = execution.getDaily()
+lstTest = []
 
+for candle in lstData:
+    if candle["symbol"] == "LTC-USD":
+        lstTest.append(candle)
+
+lstReturn = execution.getWindowScores(testParams, lstTest)
+
+for item in lstReturn:
+    if item["strength"] > 1:
+        print(item)
+
+'''
 accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
 testSymbols = getValidSymbols(testParams)
 runBasicBacktest(accountAlpha, testSymbols, testParams)
@@ -260,6 +257,7 @@ print("Closed short value:", floatShortTotal)
 print("Open (unrealized) buy value:", floatOpenBuyTotal)
 print("Open (unrealized) short value:", floatOpenShortTotal)
 print()
+'''
 
 '''# POSITION REVIEW
 for position in accountAlpha.open_positions:
