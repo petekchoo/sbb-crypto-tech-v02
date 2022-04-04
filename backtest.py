@@ -283,10 +283,13 @@ paramGrid = {"Trade Start": [datetime(2021, 5, 31, 23, 59, 59)],
                 "Long EMA": np.arange(100, 301, 50), # was 200
                 "RSI": np.arange(7, 22, 7) # was 14
             } 
-# testParams = runHyperparameterTuning(5000, 3, 1.5, paramGrid)
+
+# RUN THIS SECTION TO RUN HYPERPARAMTER TUNING. HOWEVER IT CAN TAKE A WHILE, SO COMMENTING OUT FOR NOW. 
+# testParams = runHyperparameterTuning(5000, 3, 1.5, paramGrid) 
 # print("Best param performance from Jun 1 2021 - Jan 20 2022: ")
 # print(testParams)
 
+# THIS WAS THE OUTPUT OF THE PREVIOUS TUNING
 testParams = {'Trend': 6, 'Trade Start': datetime(2021, 5, 31, 23, 59, 59), 'Trade End': datetime(2022, 1, 19, 23, 59, 59), 'Short EMA': 40, 'RSI': 21, 'Pattern': 6, 'Long EMA': 300, 'Current Date': datetime(2021, 5, 31, 23, 59, 59), 'Candles': 365, 'ATR': 21}
 
 ### RUN THIS SECTION AFTER testParams HAS BEEN CONFIGURED ###
@@ -389,8 +392,8 @@ for position in accountAlpha.open_positions:
 '''
 
 # TEST ALL SCENARIOS
-# mostRecent30 = [scenarios] # test on only most recent 30 days for now...
-for scenarioX in scenarios:# mostRecent30: # scenarios: 
+mostRecent30 = [scenarios[0]] # test on only most recent 30 days for now...
+for scenarioX in scenarios:# mostRecent30: 
 
     accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
     
