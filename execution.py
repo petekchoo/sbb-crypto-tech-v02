@@ -129,7 +129,7 @@ def runStrategy(candles, account, params):
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
-    '''
+    
     # Check for golden or death cross and buy or short accordingly
     if strategies.checkCross(candles,
                                 int(params["Short EMA"]),
@@ -154,9 +154,7 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-    '''
     
-    '''
     # Check for 7-day rising / falling trends plus corresponding RSI support
     if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
         
@@ -177,7 +175,7 @@ def runStrategy(candles, account, params):
                         floatShortStopLoss,
                         floatShortProfitTarget,
                         dateEffective)
-    '''
+    
 
     '''
     # TERRIBLE STRAT LOL

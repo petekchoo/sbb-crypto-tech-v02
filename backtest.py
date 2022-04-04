@@ -3,6 +3,7 @@ import pandas as pd, numpy as np
 from datetime import datetime, timedelta
 from accounts import TestAccount
 import execution, time, indicators
+import time
 
 ####################################
 ### Basic Historical Backtesting ###
@@ -189,133 +190,11 @@ scenario = {
 }
 scenarios.append(scenario)
 
-#### SCENARIO BASED TESTING
-
-testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
-                "Current Date": datetime(2020, 3, 6, 23, 59, 59),
-                "Trade End": datetime(2022, 3, 6, 23, 59, 59),
-                "Candles": 210,
-                "Trend": 5,
-                "Pattern": 5,
-                "ATR": 14,
-                "Short EMA": 20,
-                "Long EMA": 200,
-                "RSI": 14}
-
-lstData = execution.getDaily()
-lstTest = []
-
-for candle in lstData:
-    if candle["symbol"] == "LTC-USD":
-        lstTest.append(candle)
-
-lstReturn = execution.getWindowScores(testParams, lstTest)
-
-for item in lstReturn:
-    if item["strength"] > 1:
-        print(item)
-
-'''
-accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
-testSymbols = getValidSymbols(testParams)
-runBasicBacktest(accountAlpha, testSymbols, testParams)
-
-#  ACCOUNT SUMMARY OUTPUT
-print()
-print("Total Positions:", len(accountAlpha.open_positions))
-print("Final Account Balance:", accountAlpha.balance)
-print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
-print()
-
-#  POSITION SUMMARY BY TYPE
-
-floatBuyTotal = 0.00
-floatShortTotal = 0.00
-floatOpenBuyTotal = 0.00
-floatOpenShortTotal = 0.00
-
-for position in accountAlpha.open_positions:
-    
-    if position["status"] == False:
-    
-        if position["type"] == "buy":
-            floatBuyTotal += (float(position["close_price"]) - float(position["init_price"])) * float(position["quantity"])
-        
-        elif position["type"] == "short":
-            floatShortTotal += (float(position["init_price"]) - float(position["close_price"])) * float(position["quantity"])
-
-    else:
-        
-        if position["type"] == "buy":
-            floatOpenBuyTotal += (float(position["current_price"]) - float(position["init_price"])) * float(position["quantity"])
-        
-        else:
-            floatOpenShortTotal += (float(position["init_price"]) - float(position["current_price"])) * float(position["quantity"])
-
-print("Closed buy value:", floatBuyTotal)
-print("Closed short value:", floatShortTotal)
-print("Open (unrealized) buy value:", floatOpenBuyTotal)
-print("Open (unrealized) short value:", floatOpenShortTotal)
-print()
-'''
-
-'''# POSITION REVIEW
-for position in accountAlpha.open_positions:
-    print("Position opened on:", position["time"])
-    print("Symbol:", position["symbol"])
-    print("Order type:", position["type"])
-    print("Open price:", position["init_price"])
-    print("Current price:", position["current_price"])
-    
-    if position["status"] == False:
-
-        if position["type"] == "buy":
-            print("Close price:", position["close_price"])
-            print("Close date:", position["close_time"])
-            print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
-            print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
-            print("Position status:", position["status"])
-        
-        else:
-            print("Close price:", position["close_price"])
-            print("Close date:", position["close_time"])
-            print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
-            print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
-            print("Position status:", position["status"])
-        print()
-    
-    else:
-        print("Open position value:", float(position["current_price"]) * float(position["quantity"]))
-        print()
-'''
-
-'''
-# TEST ALL SCENARIOS
-for scenarioX in scenarios:
-
-    accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
-    
-    testParams["Trade Start"] = scenarioX["start"]
-    testParams["Current Date"] = testParams["Trade Start"]
-    testParams["Trade End"] = scenarioX["end"]
-
-    testSymbols = getValidSymbols(testParams)
-
-    runBasicBacktest(accountAlpha, testSymbols, testParams)
-    
-    print(scenarioX["name"])
-    print("Total Positions:", len(accountAlpha.open_positions))
-    print("Final Account Balance:", accountAlpha.balance)
-    print("Profit / Loss:", accountAlpha.balance - 5000)
-    print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
-    print()
-'''
 
 ##############################
 ### Hyperparameter tuning ####
 ##############################
 
-'''TEMPORARILY DISABLING UNTIL BASIC BACKTESTING IS FUNCTIONAL
 # Hyperparameter Tuning functions
 
 def getSize(paramGrid):
@@ -369,55 +248,167 @@ def getItem(paramGrid, ind):
 
     raise IndexError("ParameterGrid index out of range")
 
-### DEFINE THIS ###
-paramGrid = {
-    'shortWindow': np.arange(10, 55, 5),
-    'longWindow': np.arange(50, 505, 25),
-    'emaTimePeriod': np.arange(12, 202, 2),
-}       
 
-# Run GridSearch on paramGrid
-bestScore = 0
-bestParams = None
-granularity = 86400
-for i in range(getSize(paramGrid)):
-    # Fixed parameters
-    startingBalance = 5000
-    account = TestAccount(startingBalance)
-    currScore = startingBalance
-    currParams = getItem(paramGrid, i)
-
-    # Hyperparameter tuning dates: June 1, 2021 - Jan 20, 2022
-    start = datetime(2021, 6, 1).timestamp()
-    end = datetime(2022, 1, 20).timestamp()
-
-    curr = start
-    while end < curr:
-        account = strategy.runStrategy(datetime.fromtimestamp(curr), account, currParams) # TODO: make this the interface for runStrategy
-        curr += granularity
-        if account.balance < 0.2 * startingBalance: 
-            break
+# returns a testParam object that performed best based on hyperparam range
+def runHyperparameterTuning(acctBalance, acctProfit, acctStopLoss, paramGrid):
+    bestScore = 0
+    bestParams = None
+    startTime = time.time()
+    print(getSize(paramGrid), "hyperparameter combinations to test...")
+    for i in range(getSize(paramGrid)):
+        if i % 5 == 0: 
+            print("    ", i, "/", getSize(paramGrid), "completed |", round(time.time() - startTime) , "seconds elapsed")
+        # Fixed parameters
+        accountAlpha = TestAccount(balance=acctBalance, profit=acctProfit, stoploss=acctStopLoss)
+        currScore = accountAlpha.balance
+        currParams = getItem(paramGrid, i)
+        # testSymbols = getValidSymbols(currParams)
+        testSymbols = ["BTC-USD", "ETH-USD"]
+        runBasicBacktest(accountAlpha, testSymbols, currParams)
+        currScore = accountAlpha.balance # Scoring function is absolute returns
+        if currScore > bestScore:
+            bestParams = currParams
+    return bestParams
     
-    currScore = account.balance # Scoring function is absolute returns
-    if currScore > bestScore:
-        bestParams = currParams
+### hyperparameters to test ###
+# Hyperparameter tuning dates: June 1, 2021 - Jan 20, 2022
+paramGrid = {"Trade Start": [datetime(2021, 5, 31, 23, 59, 59)],
+                "Current Date": [datetime(2021, 5, 31, 23, 59, 59)],
+                "Trade End": [datetime(2022, 1, 19, 23, 59, 59)],
+                "Candles": [365], # was 210 (i think it's just the max of other params?, for now just setting to 365 even if 365 isnt needed)
+                "Trend": np.arange(4, 7, 1), # was 5
+                "Pattern": np.arange(4, 7, 1), # was 5
+                "ATR": np.arange(7, 22, 7), # was 14
+                "Short EMA": np.arange(10, 50, 10), # was 20
+                "Long EMA": np.arange(100, 301, 50), # was 200
+                "RSI": np.arange(7, 22, 7) # was 14
+            } 
+# testParams = runHyperparameterTuning(5000, 3, 1.5, paramGrid)
+# print("Best param performance from Jun 1 2021 - Jan 20 2022: ")
+# print(testParams)
 
-print('Best Params:', bestParams)
-'''
+testParams = {'Trend': 6, 'Trade Start': datetime(2021, 5, 31, 23, 59, 59), 'Trade End': datetime(2022, 1, 19, 23, 59, 59), 'Short EMA': 40, 'RSI': 21, 'Pattern': 6, 'Long EMA': 300, 'Current Date': datetime(2021, 5, 31, 23, 59, 59), 'Candles': 365, 'ATR': 21}
 
-### RUN THIS SECTION AFTER BEST PARAMS HAS BEEN CONFIGURED ###
+### RUN THIS SECTION AFTER testParams HAS BEEN CONFIGURED ###
 
 # ##############################
 # ###  Backtesting results  ####
 # ##############################
 
 
-# # Configure this based on hyperparameter tuning results
-# bestParams = {
-#     'shortWindow': 50,
-#     'longWindow': 500,
-#     'emaTimePeriod': 200,
-# }       
+'''
+#### SCENARIO BASED TESTING
+lstData = execution.getDaily()
+lstTest = []
+
+for candle in lstData:
+    if candle["symbol"] == "LTC-USD":
+        lstTest.append(candle)
+
+lstReturn = execution.getWindowScores(testParams, lstTest)
+
+for item in lstReturn:
+    if item["strength"] > 1:
+        # print(item)
+        pass # does nothing for now; working on the code below...
+
+
+accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
+testSymbols = getValidSymbols(testParams)
+runBasicBacktest(accountAlpha, testSymbols, testParams)
+
+#  ACCOUNT SUMMARY OUTPUT
+print()
+print("Total Positions:", len(accountAlpha.open_positions))
+print("Final Account Balance:", accountAlpha.balance)
+print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
+print()
+'''
+
+'''
+#  POSITION SUMMARY BY TYPE
+
+floatBuyTotal = 0.00
+floatShortTotal = 0.00
+floatOpenBuyTotal = 0.00
+floatOpenShortTotal = 0.00
+
+for position in accountAlpha.open_positions:
+    
+    if position["status"] == False:
+    
+        if position["type"] == "buy":
+            floatBuyTotal += (float(position["close_price"]) - float(position["init_price"])) * float(position["quantity"])
+        
+        elif position["type"] == "short":
+            floatShortTotal += (float(position["init_price"]) - float(position["close_price"])) * float(position["quantity"])
+
+    else:
+        
+        if position["type"] == "buy":
+            floatOpenBuyTotal += (float(position["current_price"]) - float(position["init_price"])) * float(position["quantity"])
+        
+        else:
+            floatOpenShortTotal += (float(position["init_price"]) - float(position["current_price"])) * float(position["quantity"])
+
+print("Closed buy value:", floatBuyTotal)
+print("Closed short value:", floatShortTotal)
+print("Open (unrealized) buy value:", floatOpenBuyTotal)
+print("Open (unrealized) short value:", floatOpenShortTotal)
+print()
+
+
+# POSITION REVIEW
+for position in accountAlpha.open_positions:
+    print("Position opened on:", position["time"])
+    print("Symbol:", position["symbol"])
+    print("Order type:", position["type"])
+    print("Open price:", position["init_price"])
+    print("Current price:", position["current_price"])
+    
+    if position["status"] == False:
+
+        if position["type"] == "buy":
+            print("Close price:", position["close_price"])
+            print("Close date:", position["close_time"])
+            print("% value increase:", (float(position["close_price"]) - float(position["init_price"])) / float(position["init_price"]))
+            print("Position value at close:", (float(position["close_price"]) - float(position["init_price"])) * position["quantity"])
+            print("Position status:", position["status"])
+        
+        else:
+            print("Close price:", position["close_price"])
+            print("Close date:", position["close_time"])
+            print("% value increase:", (float(position["init_price"]) - float(position["close_price"])) / float(position["init_price"]))
+            print("Position value at close:", (float(position["init_price"]) - float(position["close_price"])) * position["quantity"])
+            print("Position status:", position["status"])
+        print()
+    
+    else:
+        print("Open position value:", float(position["current_price"]) * float(position["quantity"]))
+        print()
+'''
+
+# TEST ALL SCENARIOS
+# mostRecent30 = [scenarios] # test on only most recent 30 days for now...
+for scenarioX in scenarios:# mostRecent30: # scenarios: 
+
+    accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
+    
+    testParams["Trade Start"] = scenarioX["start"]
+    testParams["Current Date"] = testParams["Trade Start"]
+    testParams["Trade End"] = scenarioX["end"]
+
+    testSymbols = getValidSymbols(testParams)
+
+    runBasicBacktest(accountAlpha, testSymbols, testParams)
+    
+    print(scenarioX["name"])
+    print("Total Positions:", len(accountAlpha.open_positions))
+    print("Final Account Balance:", accountAlpha.balance)
+    print("Profit / Loss:", accountAlpha.balance - 5000)
+    print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
+    print()
+
 
 # # data = pd.read_csv('data/daily.csv', index_col=None)
 # # symbols = data['symbol'].unique()
@@ -443,3 +434,6 @@ print('Best Params:', bestParams)
 #         curr += granularity
 #         if account.balance < 0.2 * startingBalance: 
 #             break
+
+
+
