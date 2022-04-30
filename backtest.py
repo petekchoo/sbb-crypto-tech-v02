@@ -191,7 +191,6 @@ scenario = {
 scenarios.append(scenario)
 
 
-<<<<<<< HEAD
 testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
                 "Current Date": datetime(2021, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
@@ -203,7 +202,6 @@ testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
                 "Long EMA": 200,
                 "RSI": 14}
 
-=======
 ##############################
 ### Hyperparameter tuning ####
 ##############################
@@ -329,7 +327,6 @@ for item in lstReturn:
         pass # does nothing for now; working on the code below...
 
 
->>>>>>> b76f436c794eea25d5ccd8f51cf22362632b97b5
 accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
 testSymbols = getValidSymbols(testParams)
 runBasicBacktest(accountAlpha, testSymbols, testParams)

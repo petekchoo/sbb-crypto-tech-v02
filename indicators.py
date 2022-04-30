@@ -333,7 +333,7 @@ def scoreMovingWindow(candles):
 
 ###### Candlestick patterns: 32.8%, engulfing, etc, #####
 
-def get328(data):
+def get382(data):
     """
     32.8 Candle: hammer or inverted hammer - potential reversal indicators
     Args:
