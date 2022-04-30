@@ -217,8 +217,14 @@ def getRSI(data, timeperiod):
                     / timeperiod
 
     # Calculate final RS, RSI
-    RS = avgGains / avgLosses
-    RSI = 100 - (100 / (1 + RS))
+    # If Average Loss equals zero, a “divide by zero” situation occurs for RS 
+    # and RSI is set to 100 by definition. Similarly, RSI equals 0 when Average 
+    # Gain equals zero.
+    if avgLosses == 0: 
+        RSI = 100
+    else: 
+        RS = avgGains / avgLosses
+        RSI = 100 - (100 / (1 + RS))
 
     return RSI
 
