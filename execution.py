@@ -209,7 +209,29 @@ def runStrategy(candles, account, params):
     '''
 
     # Moving window analysis of normalized patterns
-     
+    lstReturn = getWindowScores(params, candles)
+    lstCheck = indicators.scoreMovingWindow(candles[len(candles)-params["Pattern"]-1:len(candles) - 1])
+
+    for item in lstReturn:
+        if item["sequence"] == lstCheck and item["signal"] == "buy" and item["strength"] > 1:
+            
+            account.open_position("buy",
+                        strSymbol,
+                        floatPrice,
+                        floatQuantity,
+                        floatShortStopLoss,
+                        floatShortProfitTarget,
+                        dateEffective)
+        
+        elif item["sequence"] == lstCheck and item["signal"] == "short" and item["strength"] > 1:
+            
+            account.open_position("short",
+                        strSymbol,
+                        floatPrice,
+                        floatQuantity,
+                        floatShortStopLoss,
+                        floatShortProfitTarget,
+                        dateEffective)
 
     # Update price all existing positions, update balance with changed liability on short positions
     account.update_positions(strSymbol, floatPrice, dateEffective)

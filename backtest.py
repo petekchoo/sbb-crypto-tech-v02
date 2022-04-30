@@ -191,31 +191,17 @@ scenarios.append(scenario)
 
 #### SCENARIO BASED TESTING
 
-testParams = {"Trade Start": datetime(2020, 3, 6, 23, 59, 59),
-                "Current Date": datetime(2020, 3, 6, 23, 59, 59),
+testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
+                "Current Date": datetime(2021, 3, 6, 23, 59, 59),
                 "Trade End": datetime(2022, 3, 6, 23, 59, 59),
                 "Candles": 210,
                 "Trend": 5,
-                "Pattern": 5,
+                "Pattern": 10,
                 "ATR": 14,
                 "Short EMA": 20,
                 "Long EMA": 200,
                 "RSI": 14}
 
-lstData = execution.getDaily()
-lstTest = []
-
-for candle in lstData:
-    if candle["symbol"] == "LTC-USD":
-        lstTest.append(candle)
-
-lstReturn = execution.getWindowScores(testParams, lstTest)
-
-for item in lstReturn:
-    if item["strength"] > 1:
-        print(item)
-
-'''
 accountAlpha = TestAccount(balance = 5000, profit = 3, stoploss = 1.5)
 testSymbols = getValidSymbols(testParams)
 runBasicBacktest(accountAlpha, testSymbols, testParams)
@@ -227,6 +213,7 @@ print("Final Account Balance:", accountAlpha.balance)
 print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
 print()
 
+'''
 #  POSITION SUMMARY BY TYPE
 
 floatBuyTotal = 0.00

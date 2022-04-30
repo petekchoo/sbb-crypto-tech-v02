@@ -306,7 +306,7 @@ def scoreMovingWindow(candles):
         if float(candle["low"]) < floatLow:
             floatLow = float(candle["low"])
 
-    floatIndex = (floatHigh - floatLow) / 10
+    floatIndex = (floatHigh - floatLow) / 5
     returnDict = {"sequence": [], "signal": None, "strength": 1}
 
     # Generate sequence
