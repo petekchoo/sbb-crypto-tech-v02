@@ -13,7 +13,6 @@ def getSymbols():
     lstSymbols = list(reader)
     return lstSymbols
 
-
 def getDaily():
     """
     Read in the Daily-level file in full, build list of dictionaries
@@ -26,6 +25,17 @@ def getDaily():
     lstDaily = list(reader)
     return lstDaily
 
+def getMinute():
+    """
+    Read in the Daily-level file in full, build list of dictionaries
+
+    Returns:
+        list: list of candles
+    """
+    lstMinute = []
+    reader = csv.DictReader(open('data/test-select-BTC.csv', mode='r', encoding='UTF-8'))
+    lstMinute = list(reader)
+    return lstMinute
 
 def setTradingData(data, symbol, latestdate, timeWindow):
     """

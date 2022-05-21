@@ -157,3 +157,5 @@ cython_debug/
 # Minute level candle data
 data/minute.csv
 data/daily.csv
+data/testBTC.csv
+data/test-select-BTC.csv

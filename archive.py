@@ -52,4 +52,19 @@ def generateIndicators(symbol, latestdate):
     print("Above/Below Candle:", indicators.getAboveBelow(lst2[0], lst2[1]))
 
     return lstIndicators
+
+lstBTC = []
+
+for candle in lstMinute:
+    if candle["symbol"] == "BTC-USD":
+        lstBTC.append(candle)
+
+keys = lstBTC[0].keys()
+
+a_file = open("data/testBTC.csv", "w")
+dict_writer = csv.DictWriter(a_file, keys)
+dict_writer.writeheader()
+dict_writer.writerows(lstBTC)
+a_file.close()
+
 '''
