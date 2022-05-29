@@ -154,8 +154,11 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+local-sandbox.py
+
 # Minute level candle data
 data/minute.csv
 data/daily.csv
 data/testBTC.csv
 data/test-select-BTC.csv
+data/testVolumeBTC.csv

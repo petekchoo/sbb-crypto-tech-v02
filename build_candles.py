@@ -3,18 +3,57 @@ import execution, csv
 lstTestBTC = execution.getMinute()
 lstSymbols = execution.getSymbols()
 
-'''
-# Takes a set of candles, identifies the average volume over the past 100 days and returns that value
-def averageVolume(candles):
+# Takes a set of candles and a window parameter to determine the volume limit to be used when
+# rebuilding volume-based candles
+def setVolumeLimit(candles, params):
+    """
+    Args:
+        candles (list of dicts): set of candles to be evaluated
+        param (dict): contains two value/key pairs:
+            window (str): date-level of the window, either hourly, daily, weekly, or monthly
+            range (int): how many hours / days / weeks / months to be used to calc the average
 
-    lstLast100 = candles[len(candles)-101:len(candles)-1]
-    lstVolumes = []
+    Returns:
+        floatVolumeLimit (float): the average of the last X candles as determined by param
     
-    for candle in lstLast100:
-        lstVolumes.append(float(candle["volume"]))
+    Reference:
+        hour == 60 candles
+        day == 1440 candles
+        week == 10080 candles
+        month == 43800 (average)
+    """
 
-    return sum(lstVolumes) / len(lstVolumes)
-'''
+    # Initialize total volume variable
+    floatVolumeSum = 0.00
+
+    # Convert window parameter (str) into corresponding # of candles, set to variable:
+    intWindow = 0
+    
+    if params["window"] == "hour":
+        intWindow = 60
+    
+    elif params["window"] == "day":
+        intWindow = 1440
+    
+    elif params["window"] == "week":
+        intWindow = 10080
+
+    elif params["window"] == "month":
+        intWindow = 43800
+
+    # First check if there are enough candles based on the params
+    if len(candles) < (intWindow * params["range"]):
+        print("Not enough candles!")
+        return 0
+    
+    else: ### NOTE: something stupid here. May be easier to just sum all volume from the subset
+        # of the list then divide everything by # of days?
+        
+       lstSubset = candles[len(candles)-(intWindow * params["range"]):]
+       floatVolumeSum = sum(float(item["volume"]) for item in lstSubset)
+    
+    # Return the average volume (total volume accumulated divided by # of hours / days / etc. parsed)
+    return floatVolumeSum / params["range"]
 
 def buildVolumeCandles(candles, volume):
     
@@ -40,7 +79,7 @@ def buildVolumeCandles(candles, volume):
             # If the partial candle is also empty, initialize the current candle with the parsed candle
             if len(dictPartialCandle) == 0:
             
-                dictCurrentCandle = dictParsedCandle
+                dictCurrentCandle = dictParsedCandle.copy()
                 floatRunningAmount += float(dictParsedCandle["volume"]) * float(dictParsedCandle["close"])
                 floatRunningVolume += float(dictParsedCandle["volume"])
             
@@ -48,7 +87,7 @@ def buildVolumeCandles(candles, volume):
             # and add the values from the parsed candle, checking highs and lows as you go
             else:
 
-                dictCurrentCandle = dictPartialCandle
+                dictCurrentCandle = dictPartialCandle.copy()
                 floatRunningAmount += float(dictPartialCandle["volume"]) * float(dictPartialCandle["close"])
                 floatRunningVolume += float(dictPartialCandle["volume"])
 
@@ -71,7 +110,7 @@ def buildVolumeCandles(candles, volume):
             if floatRunningVolume + float(dictParsedCandle["volume"]) >= volume:
 
                 # Set the partial candle to the parsed candle and update its volume to the remainder volume
-                dictPartialCandle = dictParsedCandle
+                dictPartialCandle = dictParsedCandle.copy()
                 dictPartialCandle["volume"] = float(dictParsedCandle["volume"]) - (volume - floatRunningVolume)
                 
                 # "Top off" weighted average variables with the volume needed to achieve the volume limit
@@ -79,10 +118,12 @@ def buildVolumeCandles(candles, volume):
                 floatRunningVolume = volume
 
                 # Update current candle with the final volume and set the close price to the
-                # weighted average price, check if high / low needs to be updated, then add
-                # the current candle to the list of volume candles
+                # weighted average price, set the date to the date of the parsed candle, 
+                # check if high / low needs to be updated, then add the current candle to the
+                # list of volume candles
                 dictCurrentCandle["volume"] = volume
                 dictCurrentCandle["close"] = floatRunningAmount / floatRunningVolume
+                dictCurrentCandle["time"] = dictParsedCandle["time"]
                 
                 if float(dictParsedCandle["high"]) > float(dictCurrentCandle["high"]):
                     dictCurrentCandle["high"] = dictParsedCandle["high"]
@@ -97,8 +138,8 @@ def buildVolumeCandles(candles, volume):
                 floatRunningAmount = 0.00
                 floatRunningVolume = 0.00
 
-            # If the volume of the parsed candle won't exceed the volume limit, just increment, check
-            # the highs and lows, and keep going
+            # If the volume of the parsed candle won't exceed the volume limit, just increment the running
+            # values, check the highs and lows, and keep going
             else:
                 floatRunningAmount += float(dictParsedCandle["volume"]) * float(dictParsedCandle["close"])
                 floatRunningVolume += float(dictParsedCandle["volume"])
@@ -111,4 +152,14 @@ def buildVolumeCandles(candles, volume):
                 
     return lstVolumeCandles
 
-print(buildVolumeCandles(lstTestBTC, 100.00))
+print(setVolumeLimit(lstTestBTC, {"window": "hour", "range": 24}))
+
+''' Csv write code
+dictVolumeCandles = buildVolumeCandles(lstTestBTC, 10000.00)
+csvKeys = dictVolumeCandles[0].keys()
+
+with open('data/volume.csv', 'a', newline='') as output_file:
+    dict_writer = csv.DictWriter(output_file, csvKeys)
+    # dict_writer.writeheader()
+    dict_writer.writerows(dictVolumeCandles)
+'''
