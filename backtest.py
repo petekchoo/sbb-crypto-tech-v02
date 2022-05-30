@@ -12,6 +12,8 @@ import time
 # Basic backtesting function - creates a TestAccount object and calls the strategy function on it daily through all historical data
 # across all currencies from the getSymbols function
 
+# NOTE: backtesting functionality needs to be updated in order to accommodate the shift from date-based to volume-based candles
+# Consideration - how to establish the starting point for the testing window absent an 'effective date' indicator
 def runBasicBacktest(account, symbols, params):
     '''
     Basic backtesting function that takes an account, a set of symbols, and date / window params to execute strategies

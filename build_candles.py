@@ -1,3 +1,4 @@
+from turtle import update
 import execution, csv
 
 lstTestBTC = execution.getMinute()
@@ -26,7 +27,7 @@ def setVolumeLimit(candles, params):
     # Initialize total volume variable
     floatVolumeSum = 0.00
 
-    # Convert window parameter (str) into corresponding # of candles, set to variable:
+    # Convert window parameter (str) into corresponding # of candles, set to intWindow variable:
     intWindow = 0
     
     if params["window"] == "hour":
@@ -46,13 +47,17 @@ def setVolumeLimit(candles, params):
         print("Not enough candles!")
         return 0
     
-    else: ### NOTE: something stupid here. May be easier to just sum all volume from the subset
-        # of the list then divide everything by # of days?
-        
+    # Dramatically simplified logic here - just take the number of candles determined by the window
+    # and range, sum the volumes from those candles, and divide them by the range to get the average
+    # volume for the params.
+
+    # For example, if we are taking minute-level candles, the window parameter is daily (groups of
+    # 1440 candles) and the range is 30 (take the 30 day average), we just need to take 1440 * 30
+    # candles (43200) and divide the total volume by 30.
+    else:
        lstSubset = candles[len(candles)-(intWindow * params["range"]):]
        floatVolumeSum = sum(float(item["volume"]) for item in lstSubset)
     
-    # Return the average volume (total volume accumulated divided by # of hours / days / etc. parsed)
     return floatVolumeSum / params["range"]
 
 def buildVolumeCandles(candles, volume):
@@ -152,7 +157,42 @@ def buildVolumeCandles(candles, volume):
                 
     return lstVolumeCandles
 
-print(setVolumeLimit(lstTestBTC, {"window": "hour", "range": 24}))
+# The below function can be called from the web eventually and will take minute level candle data, parse it by
+# symbol, for each symbol it will build and append volume-level candles where the volume limit is determined
+# by params used by setVolumeLimit.
+def updateVolumeFile(minutelist, params):
+    """
+    Args:
+        minutelist (list of dicts): list of candle dictionaries at the minute level
+        params (dict): specifies the window and range to use when calculating the average volume to build candles up to
+
+    Returns:
+        N/A: function appends data to volume.csv, doesn't return any value
+    """
+
+    # First, write to volume.csv to initialize the header
+    csvKeys = minutelist[0].keys()
+    with open('data/volume.csv', 'w', newline='') as output_file:
+        dict_writer = csv.DictWriter(output_file, csvKeys)
+        dict_writer.writeheader()
+    
+    # Next, iterate through each symbol in the symbol list
+    for symbol in lstSymbols:
+        
+        # For each symbol, initialize a subset list 
+        lstSubset = [x for x in minutelist if x["symbol"] == symbol["symbol"]]
+
+        # Using the subset list, call setVolumeLimit to determine the average volume to set as the volume limit for candle building
+        floatVolumeLimit = setVolumeLimit(lstSubset, params)
+
+        # Append the return of buildVolumeCandles to volume.csv using the subset list and volume limit
+        lstVolumeCandles = buildVolumeCandles(lstSubset, floatVolumeLimit)
+        
+        with open('data/volume.csv', 'a', newline='') as output_file:
+            dict_writer = csv.DictWriter(output_file, csvKeys)
+            dict_writer.writerows(lstVolumeCandles)
+
+updateVolumeFile(lstTestBTC, {"window": "day", "range": 30})
 
 ''' Csv write code
 dictVolumeCandles = buildVolumeCandles(lstTestBTC, 10000.00)

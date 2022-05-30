@@ -298,21 +298,23 @@ def getSuperTrend(candles, timeperiod=10, multiplier=3):
     return lstSuperTrend
 
 # Function to take a set of candles, normalize the close price patterns of the candles relative
-# to the set's high and low, and return a 'scoring' sequence and trading signal
-def scoreMovingWindow(candles):
+# to the set's high and low, and return a sequence pattern and a simple trading signal based
+# on the pattern's final movement (if the final position is higher than the previous position, buy,
+# if lower, then short, else return False for a flat signal.)
+def scoreMovingWindow(candles, params):
 
     floatHigh = 0.00
     floatLow = 9999999999999.00
 
     # Iterate to find highest high and lowest low from the set:
     for candle in candles:
-        if float(candle["high"]) > floatHigh:
-            floatHigh = float(candle["high"])
+        if float(candle["close"]) > floatHigh:
+            floatHigh = float(candle["close"])
         
-        if float(candle["low"]) < floatLow:
-            floatLow = float(candle["low"])
+        if float(candle["close"]) < floatLow:
+            floatLow = float(candle["close"])
 
-    floatIndex = (floatHigh - floatLow) / 5
+    floatIndex = (floatHigh - floatLow) / params["Scoring Range"]
     returnDict = {"sequence": [], "signal": None, "strength": 1}
 
     # Generate sequence
@@ -320,12 +322,15 @@ def scoreMovingWindow(candles):
         intScore = int(round((float(candle["close"]) - floatLow) / floatIndex, 0))
         returnDict["sequence"].append(intScore)
 
+    # If the last score is higher than the second to last, set a buy signal
     if float(returnDict["sequence"][-1]) > float(returnDict["sequence"][-2]):
         returnDict["signal"] = "buy"
     
+    # If the last score is lower than the second to last, set a short signal
     elif float(returnDict["sequence"][-1]) < float(returnDict["sequence"][-2]):
         returnDict["signal"] = "short"
     
+    # If the last score is equal to the second to last, set False for hold
     else:
         returnDict["signal"] = False
     

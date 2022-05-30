@@ -1,4 +1,4 @@
-import csv, indicators, accounts, pandas, strategies
+import csv, indicators, accounts, pandas, strategies, build_patterns
 from datetime import datetime, timedelta
 
 def getSymbols():
@@ -33,9 +33,21 @@ def getMinute():
         list: list of candles
     """
     lstMinute = []
-    reader = csv.DictReader(open('data/test-select-BTC.csv', mode='r', encoding='UTF-8'))
+    reader = csv.DictReader(open('data/minute.csv', mode='r', encoding='UTF-8'))
     lstMinute = list(reader)
     return lstMinute
+
+def getVolume():
+    """
+    Read in the Volume-based file in full, build list of dictionaries
+
+    Returns:
+        list: list of candles
+    """
+    lstVolume = []
+    reader = csv.DictReader(open('data/volume.csv', mode='r', encoding='UTF-8'))
+    lstVolume = list(reader)
+    return lstVolume
 
 def setTradingData(data, symbol, latestdate, timeWindow):
     """
@@ -63,30 +75,44 @@ def setTradingData(data, symbol, latestdate, timeWindow):
     
     return lstReturn
 
-def getWindowScores(params, data):
-    lstScores = []
-    lstEval = data[0:int(params["Pattern"])]
+# Takes a list of candle dictionary objects and a params object to build a list of
+# patterns with associated trading signals
+def getWindowScores(candles, patterns, params):
+    
+    # Initialize variables, including an empty list of patterns, the starting pattern to
+    # evaluate, a working counter to iterate through the list of candles, and a matching boolean
+    lstPatterns = patterns
+    lstEval = candles[0:int(params["Pattern"])]
     intCounter = int(params["Pattern"])
     boolMatch = False
 
-    while intCounter < len(data):
-        dictCurrent = indicators.scoreMovingWindow(lstEval)
+    # Iterate through the list of candles
+    while intCounter < len(candles):
         
-        for item in lstScores:
+        # Initialize a dict object using the moving window function based on the initial Eval object
+        dictCurrent = indicators.scoreMovingWindow(lstEval, params)
+        
+        # Check the list of patterns to see if the sequence has already been logged
+        for item in lstPatterns:
+            
+            # If so, increment the sequence's 'strength' in the pattern list and set the match boolean to True
             if dictCurrent["sequence"] == item["sequence"]:
                 item["strength"] += 1
                 boolMatch = True
 
+        # If no match was found, append the dict object as a novel item
         if boolMatch == False:
-            lstScores.append(dictCurrent)
+            lstPatterns.append(dictCurrent)
         
-        lstEval.append(data[intCounter])
+        # Shift the moving window forward using the counter and popping the oldest object
+        lstEval.append(candles[intCounter])
         lstEval.pop(0)
 
+        # Increment the counter and reset the match boolean to False
         intCounter += 1
         boolMatch = False
     
-    return lstScores
+    return lstPatterns
 
 def runStrategy(candles, account, params):
     """
@@ -139,88 +165,20 @@ def runStrategy(candles, account, params):
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
-    
-    # Check for golden or death cross and buy or short accordingly
-    if strategies.checkCross(candles,
-                                int(params["Short EMA"]),
-                                int(params["Long EMA"]))[2]["condition"] == "GOLDEN CROSS!":
-
-        account.open_position("buy",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatBuyStopLoss,
-                        floatBuyProfitTarget,
-                        dateEffective)
-
-    if strategies.checkCross(candles,
-                                int(params["Short EMA"]),
-                                int(params["Long EMA"]))[2]["condition"] == "DEATH CROSS!":
-
-        account.open_position("short",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatShortStopLoss,
-                        floatShortProfitTarget,
-                        dateEffective)
-    
-    # Check for 7-day rising / falling trends plus corresponding RSI support
-    if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
-        
-        account.open_position("buy",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatBuyStopLoss,
-                        floatBuyProfitTarget,
-                        dateEffective)
-
-    elif indicators.fallingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) >= 70:
-
-        account.open_position("short",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatShortStopLoss,
-                        floatShortProfitTarget,
-                        dateEffective)
-    
-
-    '''
-    # TERRIBLE STRAT LOL
-    # SuperTrend + EMA Support
-    # Uses volatility to screen out sideways / consolidation scenarios - high risk, high reward
-    if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
-        indicators.getSuperTrend(candles)[-1] < float(candles[-1]["close"]) and \
-        float(candles[-1]["low"]) <= indicators.getEMA(candles, params["Short EMA"]):
-
-        account.open_position("buy",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatBuyStopLoss,
-                        floatBuyProfitTarget,
-                        dateEffective)
-
-    elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
-        indicators.getSuperTrend(candles)[-1] > float(candles[-1]["close"]) and \
-        float(candles[-1]["high"]) >= indicators.getEMA(candles, params["Short EMA"]):
-
-        account.open_position("short",
-                        strSymbol,
-                        floatPrice,
-                        floatQuantity,
-                        floatShortStopLoss,
-                        floatShortProfitTarget,
-                        dateEffective)
-    '''
-
     # Moving window analysis of normalized patterns
-    lstReturn = getWindowScores(params, candles)
-    lstCheck = indicators.scoreMovingWindow(candles[len(candles)-params["Pattern"]-1:len(candles) - 1])
+    # First, build a list of patterns on the full set of candles using the new patterns module
+    lstConsolidatedPatterns = build_patterns.consolidatePatterns()
 
-    for item in lstReturn:
+    # Next, check the latest pattern including 
+    # NOTE: need to update - technically, the check should be looking for all patterns that match the first
+    # params["Pattern"]-1 items including the latest trading data and check to see the trading signal strength
+    # off of those patterns for a significant signal strength (i.e., if the pattern sequences are ten in length,
+    # we should be matching the last nine days of trading data and looking at the signals (which are based on
+    # the tenth day) to establish the final signal).
+    # This fix should be made to both lstCheck as well as the item comparison logic below.
+    lstCheck = indicators.scoreMovingWindow(candles[len(candles)-params["Pattern"]-1:len(candles) - 1], params)
+
+    for item in lstConsolidatedPatterns:
         if item["sequence"] == lstCheck and item["signal"] == "buy" and item["strength"] > 1:
             
             account.open_position("buy",
@@ -254,3 +212,81 @@ def runStrategy(candles, account, params):
 ##### LOCAL TESTING FOR STRATEGY FUNCTIONS #####
 
 # NOTE: backtesting function has been moved to backtest.py
+
+'''
+# Temporarily disabling other strategies in favor of volume-based pattern matching
+# Check for golden or death cross and buy or short accordingly
+if strategies.checkCross(candles,
+                            int(params["Short EMA"]),
+                            int(params["Long EMA"]))[2]["condition"] == "GOLDEN CROSS!":
+
+    account.open_position("buy",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatBuyStopLoss,
+                    floatBuyProfitTarget,
+                    dateEffective)
+
+if strategies.checkCross(candles,
+                            int(params["Short EMA"]),
+                            int(params["Long EMA"]))[2]["condition"] == "DEATH CROSS!":
+
+    account.open_position("short",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatShortStopLoss,
+                    floatShortProfitTarget,
+                    dateEffective)
+
+# Check for 7-day rising / falling trends plus corresponding RSI support
+if indicators.risingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) <= 30:
+    
+    account.open_position("buy",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatBuyStopLoss,
+                    floatBuyProfitTarget,
+                    dateEffective)
+
+elif indicators.fallingCheck(lstTrend) == True and indicators.getRSI(lstRSI, len(lstRSI)) >= 70:
+
+    account.open_position("short",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatShortStopLoss,
+                    floatShortProfitTarget,
+                    dateEffective)
+'''
+
+'''
+# TERRIBLE STRAT LOL
+# SuperTrend + EMA Support
+# Uses volatility to screen out sideways / consolidation scenarios - high risk, high reward
+if indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+    indicators.getSuperTrend(candles)[-1] < float(candles[-1]["close"]) and \
+    float(candles[-1]["low"]) <= indicators.getEMA(candles, params["Short EMA"]):
+
+    account.open_position("buy",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatBuyStopLoss,
+                    floatBuyProfitTarget,
+                    dateEffective)
+
+elif indicators.getATR(lstATR) / float(candles[-1]["close"]) > 0.1 and \
+    indicators.getSuperTrend(candles)[-1] > float(candles[-1]["close"]) and \
+    float(candles[-1]["high"]) >= indicators.getEMA(candles, params["Short EMA"]):
+
+    account.open_position("short",
+                    strSymbol,
+                    floatPrice,
+                    floatQuantity,
+                    floatShortStopLoss,
+                    floatShortProfitTarget,
+                    dateEffective)
+'''
