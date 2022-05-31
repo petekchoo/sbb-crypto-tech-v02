@@ -1,4 +1,4 @@
-import csv, indicators, accounts, pandas, strategies, build_patterns
+import csv, indicators, volume_accounts, pandas, strategies, build_patterns
 from datetime import datetime, timedelta
 
 def runStrategy(candles, account, params):
@@ -21,21 +21,26 @@ def runStrategy(candles, account, params):
     strSymbol = candles[-1]["symbol"]
 
     # Set the effective date for any open, update, or closing position
-    # Note - since we are reading the closed candle for the latest day, effective trades will
+    # Note - since we are reading the closed candle for the most recent day, effective trades will
     # always fall one day in the future
     dateEffective = datetime.fromtimestamp(int(candles[-1]["time"])) + timedelta(days = 1)
     
     # Next, initialize lists of data to generate indicators / strategy outputs based on the window params
-    lstTrend = candles[len(candles)-int(params["Trend"])-1:len(candles) - 1]
+    # NOTE: only ATR is required to set pricing data, other indicators not needed for pattern modeling
+    # lstTrend = candles[len(candles)-int(params["Trend"])-1:len(candles) - 1]
+    # lstRSI = candles[len(candles)-int(params["RSI"])-1:len(candles) - 1]
     lstATR = candles[len(candles)-int(params["ATR"])-1:len(candles) - 1]
-    lstRSI = candles[len(candles)-int(params["RSI"])-1:len(candles) - 1]
 
     # Set a trading price and quantity based on the midpoint of the current day's candle
+    # NOTE: with volume candles, the spread from open to close can be substantial. Adjusting this to
+    # simply be close price.
+    '''
     if float(candles[-1]["open"]) <= float(candles[-1]["close"]): # Price closed above open
         floatPrice = float(candles[-1]["open"]) + (float(candles[-1]["close"]) - float(candles[-1]["open"]) / 2)
     else: # Price closed below open
         floatPrice = float(candles[-1]["open"]) - (float(candles[-1]["open"]) - float(candles[-1]["close"]) / 2)
-
+    '''
+    floatPrice = float(candles[-1]["close"])
     tradeAmount = account.trade_value # Trade in increments based on account definition
     floatQuantity = tradeAmount / floatPrice # Quantity for purchase is based on the trade amount from the account
     
@@ -46,28 +51,25 @@ def runStrategy(candles, account, params):
     profitMultiple = account.profit_multiple
     stopLossMultiple = account.stop_loss
     
-    floatBuyStopLoss = floatPrice - (floatATR * stopLossMultiple)
-    floatShortStopLoss = floatPrice + (floatATR * stopLossMultiple)
-    
+    # Establish profit targets and stop losses based on ATR and the multiples established in the account object
     floatBuyProfitTarget = floatPrice + (floatATR * profitMultiple)
     floatShortProfitTarget = floatPrice - (floatATR * profitMultiple)
 
-    # Moving window analysis of normalized patterns
-    # First, build a list of patterns on the full set of candles using the new patterns module
-    lstConsolidatedPatterns = build_patterns.consolidatePatterns()
+    floatBuyStopLoss = floatPrice - (floatATR * stopLossMultiple)
+    floatShortStopLoss = floatPrice + (floatATR * stopLossMultiple)
 
-    # Next, check the latest pattern including 
-    # NOTE: need to update - technically, the check should be looking for all patterns that match the first
-    # params["Pattern"]-1 items including the latest trading data and check to see the trading signal strength
-    # off of those patterns for a significant signal strength (i.e., if the pattern sequences are ten in length,
-    # we should be matching the last nine days of trading data and looking at the signals (which are based on
-    # the tenth day) to establish the final signal).
-    # This fix should be made to both lstCheck as well as the item comparison logic below.
-    lstCheck = indicators.scoreMovingWindow(candles[len(candles)-params["Pattern"]-1:len(candles) - 1], params)
+    # Read in pattern data
+    reader = csv.DictReader(open(params["Pattern File"], mode='r', encoding='UTF-8'))
+    lstSignals = list(reader)
 
-    for item in lstConsolidatedPatterns:
-        if item["sequence"] == lstCheck and item["signal"] == "buy" and item["strength"] > 1:
-            
+    # Next, establish the current price patterns by passing the last Pattern-1 values in to be scored
+    lstCheck = build_patterns.scoreMovingWindow(candles[len(candles)-params["Pattern"]:len(candles) - 1], params)
+    
+    # Then iterate through all signal data to see if a matching pattern exists - since all signal data
+    # is pre-filtered to only be strong buy or sell signals, this enables very simple trading action
+    for item in lstSignals:
+        
+        if item["sequence"] == str(lstCheck["sequence"]) and item["buy"] > item["short"]:
             account.open_position("buy",
                         strSymbol,
                         floatPrice,
@@ -76,7 +78,7 @@ def runStrategy(candles, account, params):
                         floatShortProfitTarget,
                         dateEffective)
         
-        elif item["sequence"] == lstCheck and item["signal"] == "short" and item["strength"] > 1:
+        elif item["sequence"] == str(lstCheck["sequence"]) and item["short"] > item["buy"]:
             
             account.open_position("short",
                         strSymbol,

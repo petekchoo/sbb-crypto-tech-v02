@@ -1,8 +1,8 @@
 from cgi import test
 import pandas as pd, numpy as np
 from datetime import datetime, timedelta
-from accounts import TestAccount
-import execution, time, indicators, structure_data
+from volume_accounts import TestAccount
+import volume_execution, time, indicators, structure_data
 import time
 
 ####################################
@@ -27,74 +27,51 @@ def runBasicBacktest(account, symbols, params):
     Returns:
         N/A - updates TestAccount object
     '''
-    
-    lstData = structure_data.getDaily()
-    storeDate = params["Current Date"]
+
+    lstData = structure_data.getVolume()
 
     for symbol in symbols:
         
         # Initialize list of candles based on symbol once per symbol
-        lstCandlesSymbol = structure_data.setTradingData(lstData,
-                                                symbol,
-                                                params["Current Date"],
-                                                "ALL")
+        lstCandlesSymbol = [x for x in lstData if x["symbol"] == symbol]
         
-        while params["Current Date"] < params["Trade End"]:
+        # Set a counter for indexing candles - by default this should be set to the ATR param
+        # so that enough candles are supplied to generate the ATR calculation in execution
+        intCounter = params["ATR"]
 
-            # Reinitialize subset list per day to simulate moving window
-            lstCandles = structure_data.setTradingData(lstCandlesSymbol,
-                                                symbol,
-                                                params["Current Date"],
-                                                params["Candles"])
-            
-            execution.runStrategy(lstCandles, account, params)
-            params["Current Date"] = params["Current Date"] + timedelta(days = 1)
+        # Initialize the subset of candles starting with first N candles as defined by the ATR window
+        lstCandles = lstCandlesSymbol[:intCounter - 1]
         
-        params["Current Date"] = storeDate
+        # Iterate through all candles, executing the strategy without reference to date
+        while intCounter < len(lstCandlesSymbol):
+            volume_execution.runStrategy(lstCandles, account, params)
+            lstCandles.append(lstCandlesSymbol[intCounter])
+            lstCandles.pop(0)
+            intCounter += 1
 
-def getValidSymbols(params):
-    '''
-    Function to test which symbols in symbols.csv have enough data history for a given set of params
 
-    Args:
-        listsymbols (lst of dicts): sourced from symbols.csv
-        params (dict): set of dates and windows for a given backtesting strategy
-    
-    Returns:
-        validSymbols (lst): list of symbols that have sufficient data for a test to be executed
-    '''
-    
-    # Initialize a list with all candles data available per get-data and all symbols in list
-    lstCandles = execution.getDaily()
-    lstSymbols = execution.getSymbols()
-    
-    # Set a variable for the oldest date per the params 
-    dateOldestDate = params["Current Date"] - timedelta(days = int(params["Candles"]))
+testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
+                "Current Date": datetime(2021, 3, 6, 23, 59, 59),
+                "Trade End": datetime(2022, 3, 6, 23, 59, 59),
+                "Candles": 210,
+                "Trend": 5,
+                "Pattern": 8,
+                "Scoring Range": 3,
+                "Pattern File": 'patterns/pattern-8-3-20-60.csv',
+                "ATR": 14,
+                "Short EMA": 20,
+                "Long EMA": 200,
+                "RSI": 14}
 
-    # Set a list to collect the symbols whose earliest data meets the params conditions
-    lstValidSymbols = []
+accountAlpha = TestAccount(balance = 5000, profit = 4, stoploss = 1.5)
+testSymbols = ["BTC-USD", "ETH-USD", "LTC-USD", "ADA-USD"]
+runBasicBacktest(accountAlpha, testSymbols, testParams)
 
-    # Iterate through all symbols in symbols.csv
-    for symbol in lstSymbols:
-
-        # Initialize a variable with today's date, to be updated with the oldest record for the symbol
-        dateSymbolOldest = datetime.today()
-
-        # Iterate through all candle data
-        for candle in lstCandles:
-
-            # Check for match with given symbol from symbols.csv
-            if candle["symbol"] == symbol["symbol"]:
-
-                # Check to see if the candle's date is older than dateOldest, update if so
-                if datetime.fromtimestamp(int(candle["time"])) < dateSymbolOldest:
-                    dateSymbolOldest = datetime.fromtimestamp(int(candle["time"]))
-            
-        # Check to see if the dateSymbolOldest is older than the param's earliest time period
-        if dateSymbolOldest < dateOldestDate:
-            lstValidSymbols.append(symbol["symbol"])
-    
-    return lstValidSymbols
+print()
+print("Total Positions:", len(accountAlpha.open_positions))
+print("Final Account Balance:", accountAlpha.balance)
+print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
+print()
 
 ##############################
 ### Define scenarios here ####
@@ -191,18 +168,6 @@ scenario = {
     'end': datetime(2021, 5, 31)
 }
 scenarios.append(scenario)
-
-
-testParams = {"Trade Start": datetime(2021, 3, 6, 23, 59, 59),
-                "Current Date": datetime(2021, 3, 6, 23, 59, 59),
-                "Trade End": datetime(2022, 3, 6, 23, 59, 59),
-                "Candles": 210,
-                "Trend": 5,
-                "Pattern": 10,
-                "ATR": 14,
-                "Short EMA": 20,
-                "Long EMA": 200,
-                "RSI": 14}
 
 ##############################
 ### Hyperparameter tuning ####
@@ -404,6 +369,7 @@ for position in accountAlpha.open_positions:
         print()
 '''
 
+'''
 # TEST ALL SCENARIOS
 mostRecent30 = [scenarios[0]] # test on only most recent 30 days for now...
 for scenarioX in scenarios:# mostRecent30: 
@@ -424,7 +390,7 @@ for scenarioX in scenarios:# mostRecent30:
     print("Profit / Loss:", accountAlpha.balance - 5000)
     print("Maximum Account Drawdown:", accountAlpha.max_drawdown)
     print()
-
+'''
 
 # # data = pd.read_csv('data/daily.csv', index_col=None)
 # # symbols = data['symbol'].unique()
